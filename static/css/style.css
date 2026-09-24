@@ -242,6 +242,7 @@ button, input, select { font-family: var(--font-ui); }
 .data-table th {
   text-align: left; font-size: 12px; font-weight: 500; color: var(--text-muted);
   border-bottom: 1px solid var(--border); padding: 0 8px 10px 8px;
+  white-space: nowrap;
 }
 .data-table td {
   padding: 10px 8px; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid var(--border);
