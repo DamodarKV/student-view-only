@@ -38,34 +38,52 @@ const AdminView = {
     UI.refreshIcons();
 
     content.querySelector("[data-el='assessment-chart-box']").style.height = "340px";
+    const assessmentData = (overview.assessment || []).filter((item) => (item.track || item.label) !== "DevDockerGit");
     AdminView.charts.push(
-      Charts.verticalBar(content.querySelector("[data-el='assessment-chart']"), overview.assessment, "track", "pct", PALETTE.teal)
+      Charts.verticalBar(content.querySelector("[data-el='assessment-chart']"), assessmentData, "track", "pct", PALETTE.teal)
     );
 
-    AdminView.renderWarningPanel(content, overview.warning);
+    if (overview.panelCounts) {
+      AdminView.renderWarningPanel(content, overview.panelCounts);
+    }
     await AdminView.renderStudentPanel(content);
   },
 
-  renderWarningPanel(content, warning) {
-    const total = warning.critical + warning.moderate + warning.onTrack;
+  renderWarningPanel(content, counts) {
+    if (!counts) return;
+    const selected = Number(counts.selected ?? 0);
+    const rejected = Number(counts.rejected ?? 0);
+    const total = selected + rejected;
     const segments = [
-      { name: "Critical", value: warning.critical, color: PALETTE.coral },
-      { name: "Moderate", value: warning.moderate, color: PALETTE.amber },
-      { name: "On track", value: warning.onTrack, color: PALETTE.teal },
+      { name: "Selected", value: selected, color: PALETTE.teal },
+      { name: "Rejected", value: rejected, color: PALETTE.coral },
     ];
-    content.querySelector("[data-el='warning-total']").textContent = total;
-    AdminView.charts.push(Charts.donut(content.querySelector("[data-el='warning-chart']"), segments));
+    const totalEl = content.querySelector("[data-el='warning-total']");
+    if (totalEl) totalEl.textContent = total;
+
+    const chartCanvas = content.querySelector("[data-el='warning-chart']");
+    if (chartCanvas) {
+      if (AdminView.warningChart) {
+        Charts.destroy(AdminView.warningChart);
+        AdminView.charts = AdminView.charts.filter((c) => c !== AdminView.warningChart);
+        AdminView.warningChart = null;
+      }
+      AdminView.warningChart = Charts.donut(chartCanvas, segments);
+      AdminView.charts.push(AdminView.warningChart);
+    }
 
     const legend = content.querySelector("[data-el='warning-legend']");
-    UI.clear(legend);
-    segments.forEach((s) => {
-      const row = document.createElement("div");
-      row.className = "legend-row";
-      row.innerHTML = `<span class="legend-dot" style="background:${s.color}"></span><span class="legend-name"></span><span class="legend-value"></span>`;
-      row.querySelector(".legend-name").textContent = s.name;
-      row.querySelector(".legend-value").textContent = s.value;
-      legend.appendChild(row);
-    });
+    if (legend) {
+      UI.clear(legend);
+      segments.forEach((s) => {
+        const row = document.createElement("div");
+        row.className = "legend-row";
+        row.innerHTML = `<span class="legend-dot" style="background:${s.color}"></span><span class="legend-name"></span><span class="legend-value"></span>`;
+        row.querySelector(".legend-name").textContent = s.name;
+        row.querySelector(".legend-value").textContent = s.value;
+        legend.appendChild(row);
+      });
+    }
   },
 
   async renderStudentPanel(content) {
@@ -79,6 +97,10 @@ const AdminView = {
     const data = await Api.get(
       `/api/admin/students?track=${encodeURIComponent(AdminView.trackFilter)}&category=${AdminView.activeCategory}`
     );
+
+    if (data && data.counts) {
+      AdminView.renderWarningPanel(content, data.counts);
+    }
 
     UI.clear(tabsEl);
     Object.entries(STUDENT_PANEL_CATEGORIES).forEach(([key, meta]) => {

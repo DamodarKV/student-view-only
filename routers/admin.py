@@ -38,11 +38,13 @@ def get_overview(track: str = Query("All tracks")):
     if track not in data.TRACK_FILTER_OPTIONS:
         raise HTTPException(status_code=404, detail="Unknown track")
     d = data.get_track_data(track)
+    assessment = [item for item in d["assessment"] if item.get("track") != "DevDockerGit"]
     return {
         "track": track,
         "stats": data.build_stats(d),
-        "assessment": d["assessment"],
+        "assessment": assessment,
         "warning": d["warning"],
+        "panelCounts": d.get("panelCounts", {"selected": 0, "rejected": 0}),
     }
 
 

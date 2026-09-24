@@ -127,8 +127,10 @@ const Charts = {
     });
   },
 
-  /** Donut chart: warning panel. */
+  /** Donut chart: warning panel (Selected vs Rejected). */
   donut(canvas, segments) {
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
     return new Chart(canvas, {
       type: "doughnut",
       data: {
