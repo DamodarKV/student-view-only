@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cohort Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css?v=17" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js"></script>
+</head>
+<body>
+<div id="app" class="app-shell">
+  <header class="mobile-header" id="mobile-header">
+    <button class="mobile-toggle-btn" id="mobile-toggle-btn" aria-label="Open menu">
+      <i data-lucide="menu"></i>
+    </button>
+    <span class="mobile-header-title">AI Track cohort</span>
+    <span class="mobile-status-dot" title="Online"></span>
+  </header>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header-row">
+      <div class="sidebar-title">AI Track cohort</div>
+      <button class="sidebar-close-btn" id="sidebar-close-btn" aria-label="Close menu">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <button class="sidebar-item" data-view="admin"><i data-lucide="layout-grid"></i>Admin</button>
+      <button class="sidebar-item" data-view="instructor"><i data-lucide="graduation-cap"></i>Instructor</button>
+      <button class="sidebar-item" data-view="student"><i data-lucide="user-circle-2"></i>Student</button>
+    </nav>
+    <div class="sidebar-status" id="sidebar-status" style="margin-top:auto; padding: 10px 8px; font-size:11px; color: var(--text-muted); border-top: 1px solid var(--border); display:flex; align-items:center; gap:8px;">
+      <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--teal);"></span>
+      <span id="sidebar-status-text">Loading dataset...</span>
+    </div>
+  </aside>
+  <main class="content" id="content">
+    <!-- view templates are cloned into here by app.js -->
+  </main>
+</div>
+
+<!-- ============ view templates (hidden, cloned by JS) ============ -->
+<template id="tpl-admin-overview">
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Admin overview</h1>
+        <p class="page-subtitle" data-el="subtitle">Cohort health</p>
+      </div>
+      <div data-el="track-filter"></div>
+    </div>
+    <div class="stat-grid" data-el="stats"></div>
+    <div class="two-col two-col-wide">
+      <div class="card" data-el="assessment-card">
+        <div class="card-header"><span class="card-title">Assessment scores by track</span></div>
+        <div class="chart-box" data-el="assessment-chart-box"><canvas data-el="assessment-chart"></canvas></div>
+      </div>
+      <div class="card warning-card" data-el="warning-card">
+        <span class="card-title">Warning panel</span>
+        <div class="warning-body">
+          <div class="donut-wrap">
+            <canvas data-el="warning-chart" width="150" height="150"></canvas>
+            <div class="donut-center">
+              <span class="donut-total" data-el="warning-total"></span>
+              <span class="donut-label">students</span>
+            </div>
+          </div>
+          <div class="legend" data-el="warning-legend"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card student-panel-card">
+      <div class="card-header wrap">
+        <span class="card-title">Student Panel</span>
+        <div class="pill-group" data-el="category-tabs"></div>
+      </div>
+      <div class="student-panel-scroll">
+        <table class="data-table">
+          <thead><tr><th>Student</th><th>Performance</th><th>Watchlist</th></tr></thead>
+          <tbody data-el="student-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-student-name-cell">
+  <button class="link-cell" data-el="btn"></button>
+</template>
+
+<template id="tpl-stat-card">
+  <div class="stat-card" data-el="card">
+    <div class="stat-top">
+      <span class="stat-label" data-el="label"></span>
+      <i data-el="icon"></i>
+    </div>
+    <div class="stat-value-row">
+      <span class="stat-value" data-el="value"></span>
+      <span class="stat-unit" data-el="unit"></span>
+    </div>
+    <div class="stat-fill-track" data-el="fill-track" hidden><div class="stat-fill" data-el="fill"></div></div>
+    <span class="stat-hint" data-el="hint" hidden></span>
+  </div>
+</template>
+
+<template id="tpl-track-filter">
+  <div class="track-filter">
+    <button class="track-filter-btn" data-el="toggle"></button>
+    <div class="track-filter-menu" data-el="menu" hidden></div>
+  </div>
+</template>
+
+<template id="tpl-modal-shell">
+  <div class="modal-overlay" data-el="overlay">
+    <div class="modal" data-el="modal">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title" data-el="title"></h2>
+          <p class="modal-subtitle" data-el="subtitle"></p>
+        </div>
+        <button class="modal-close" data-el="close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" data-el="body"></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-instructor">
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Instructor overview</h1>
+        <p class="page-subtitle" data-el="subtitle">Syllabus & topics completed</p>
+      </div>
+      <div class="header-actions">
+        <div data-el="track-filter"></div>
+        <button class="btn-primary" data-el="add-exam-btn"><i data-lucide="plus"></i>Add Exam</button>
+        <button class="btn-primary" data-el="add-assignment-btn"><i data-lucide="plus"></i>Add assignment</button>
+      </div>
+    </div>
+    <div class="stat-grid" data-el="stats"></div>
+    <div class="card">
+      <div class="card-header wrap">
+        <span class="card-title">Syllabus progress</span>
+        <div class="pill-group" data-el="status-nav"></div>
+      </div>
+      <div class="table-responsive">
+        <table class="data-table" data-el="topics-table">
+          <thead data-el="topics-head"></thead>
+          <tbody data-el="topics-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-add-topic-modal">
+  <div class="field">
+    <label class="field-label">Topic</label>
+    <input class="field-input" data-el="topic" placeholder="e.g. Vector databases" autofocus />
+  </div>
+  <div class="field">
+    <label class="field-label">Track</label>
+    <select class="field-input" data-el="track"></select>
+  </div>
+  <div class="field">
+    <label class="field-label">Status</label>
+    <select class="field-input" data-el="status"></select>
+  </div>
+  <div class="field">
+    <label class="field-label">Date completed</label>
+    <input class="field-input" type="date" data-el="date" />
+  </div>
+  <div class="modal-actions">
+    <button class="btn-secondary" data-el="cancel">Cancel</button>
+    <button class="btn-primary" data-el="submit">Add topic</button>
+  </div>
+</template>
+
+<template id="tpl-add-assignment-modal">
+  <div class="field">
+    <label class="field-label">Student Register Number</label>
+    <select class="field-input" data-el="student-regno">
+      <option value="ALL">All Cohort Students</option>
+    </select>
+  </div>
+  <div style="margin-top:12px; margin-bottom:12px; overflow-x:auto;">
+    <table class="data-table" style="width:100%;">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th>Topic</th>
+          <th style="width:130px;">Track</th>
+          <th style="width:50px;"></th>
+        </tr>
+      </thead>
+      <tbody data-el="assignment-rows"></tbody>
+    </table>
+  </div>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; flex-wrap:wrap; gap:10px;">
+    <button class="btn-secondary" data-el="add-row-btn" style="font-size:12px; padding:6px 14px;"><i data-lucide="plus"></i>Add Row</button>
+    <div class="modal-actions" style="margin-top:0;">
+      <button class="btn-secondary" data-el="cancel">Cancel</button>
+      <button class="btn-primary" data-el="submit">Save Assignment</button>
+    </div>
+  </div>
+</template>
+
+
+<template id="tpl-add-score-modal">
+  <div class="field">
+    <label class="field-label">Topic</label>
+    <input class="field-input" data-el="topic" placeholder="e.g. RAG Optimization" autofocus />
+  </div>
+  <div class="field">
+    <label class="field-label">Score (0 - 100)</label>
+    <input class="field-input" type="number" min="0" max="100" step="0.1" data-el="score" placeholder="e.g. 95" />
+  </div>
+  <div class="modal-actions">
+    <button class="btn-secondary" data-el="cancel">Cancel</button>
+    <button class="btn-primary" data-el="submit">Add score</button>
+  </div>
+</template>
+
+
+<template id="tpl-add-exam-modal">
+  <div class="field">
+    <label class="field-label">Topic Name</label>
+    <input class="field-input" data-el="topic" placeholder="e.g. Prompt Engineering" autofocus />
+  </div>
+  <div class="field">
+    <label class="field-label">Track</label>
+    <select class="field-input" data-el="track">
+      <option value="AI Track">AI Track</option>
+      <option value="DevOps Track">DevOps Track</option>
+    </select>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-secondary" data-el="cancel">Cancel</button>
+    <button class="btn-primary" data-el="submit">Add Exam</button>
+  </div>
+</template>
+
+
+<template id="tpl-add-weight-modal">
+  <div class="field">
+    <label class="field-label">Assessment type</label>
+    <input class="field-input" data-el="assessment-type" placeholder="e.g. Quiz" autofocus />
+  </div>
+  <div class="field">
+    <label class="field-label">Weightage (%)</label>
+    <input class="field-input" type="number" min="0" max="100" step="0.1" data-el="weightage" placeholder="e.g. 20" />
+  </div>
+  <div class="modal-actions">
+    <button class="btn-secondary" data-el="cancel">Cancel</button>
+    <button class="btn-primary" data-el="submit">Add weightage</button>
+  </div>
+</template>
+
+
+
+
+<template id="tpl-student-roster">
+  <div class="page">
+    <div class="page-header wrap">
+      <div>
+        <h1 class="page-title">Student roster</h1>
+        <p class="page-subtitle" data-el="subtitle"></p>
+      </div>
+      <div class="header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input type="text" class="field-input" data-el="search-input" placeholder="Search student, reg no, branch..." style="width:220px; padding:7px 12px; font-size:13px;" />
+        <select class="field-input" data-el="branch-filter" style="width:125px; padding:7px 10px; font-size:13px;">
+          <option value="All">All Branches</option>
+          <option value="CS">CS</option>
+          <option value="IS">IS</option>
+          <option value="ECE">ECE</option>
+          <option value="AI/ML">AI/ML</option>
+        </select>
+        <select class="field-input" data-el="sort-select" style="width:175px; padding:7px 10px; font-size:13px; font-weight:500;">
+          <option value="avg-desc">Score: High to Low &#9660;</option>
+          <option value="avg-asc">Score: Low to High &#9650;</option>
+          <option value="weightage-desc">Performance: High to Low</option>
+          <option value="name-asc">Name: A to Z</option>
+        </select>
+      </div>
+    </div>
+    <div class="card table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Register No.</th>
+            <th>Student</th>
+            <th>Branch</th>
+            <th>AI score</th>
+            <th>DevOps score</th>
+            <th>Average score</th>
+            <th>Performance</th>
+            <th>Watchlist</th>
+          </tr>
+        </thead>
+        <tbody data-el="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-student-profile">
+  <div class="page">
+    <button class="back-btn" data-el="back"><i data-lucide="arrow-left"></i><span data-el="back-label">Back to student list</span></button>
+    <div class="page-header wrap">
+      <div>
+        <h1 class="page-title" data-el="name"></h1>
+        <p class="page-subtitle" data-el="meta-line"></p>
+      </div>
+      <div class="header-actions">
+        <div class="status-pill" data-el="status-pill">
+          <span class="status-dot" data-el="status-dot"></span>
+          <span data-el="status-label"></span>
+        </div>
+        <button class="watchlist-btn" data-el="watchlist-btn"><i data-lucide="eye"></i><span data-el="watchlist-label">Add to watchlist</span></button>
+      </div>
+    </div>
+    <div class="stat-grid" data-el="stats"></div>
+    <div class="card" style="margin-bottom:16px;">
+      <span class="card-title" data-el="trend-title">Assessment score progression</span>
+      <p class="chart-subtitle" data-el="trend-subtitle">Sequential scores across completed assessment modules</p>
+      <div class="chart-box chart-box-line"><canvas data-el="trend-chart"></canvas></div>
+    </div>
+    <div class="two-col" style="margin-bottom:16px;">
+      <div class="card">
+        <span class="card-title" data-el="ai-modules-title">AI Track modules</span>
+        <div class="chart-box" data-el="ai-modules-box"><canvas data-el="ai-modules-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <span class="card-title" data-el="devops-modules-title">DevOps Track modules</span>
+        <div class="chart-box" data-el="devops-modules-box"><canvas data-el="devops-modules-chart"></canvas></div>
+      </div>
+    </div>
+    <div class="two-col two-col-narrow">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Weights</span>
+          <button class="icon-add-btn" data-el="add-weight-btn" title="Add weightage"><i data-lucide="plus"></i></button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:36px;">#</th>
+                <th>Assessment type</th>
+                <th style="text-align:right;">Weightage</th>
+              </tr>
+            </thead>
+            <tbody data-el="weights"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="feedback-header" style="display:flex; align-items:center; justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <i data-lucide="message-square"></i><span class="card-title">Mentor feedback</span>
+          </div>
+        </div>
+        <p class="feedback-note" data-el="feedback-note"></p>
+        <span class="feedback-meta" data-el="feedback-meta"></span>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script src="/static/js/api.js?v=13"></script>
+<script src="/static/js/ui.js?v=13"></script>
+<script src="/static/js/charts.js?v=13"></script>
+<script src="/static/js/admin.js?v=14"></script>
+<script src="/static/js/instructor.js?v=14"></script>
+<script src="/static/js/student.js?v=22"></script>
+<script src="/static/js/app.js?v=14"></script>
+</body>
+</html>
