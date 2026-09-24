@@ -20,8 +20,21 @@ const StudentView = {
 
     const updateRows = (list) => {
       const sortedList = [...list].sort(sortFn);
-      r.subtitle.textContent = `${sortedList.length} of ${students.length} students · sorted by score high to low`;
+      const sortLabels = {
+        "avg-desc": "sorted by score high to low",
+        "avg-asc": "sorted by score low to high",
+        "weightage-desc": "sorted by performance high to low",
+        "name-asc": "sorted by name A to Z",
+      };
+      const sortText = sortLabels[currentSort] || "sorted by score high to low";
+      r.subtitle.textContent = `${sortedList.length} of ${students.length} students · ${sortText}`;
       UI.clear(r.rows);
+      if (sortedList.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted, #8D98A6);">No students found</td>`;
+        r.rows.appendChild(tr);
+        return;
+      }
       sortedList.forEach((s) => {
         const tr = document.createElement("tr");
 
@@ -111,12 +124,23 @@ const StudentView = {
       UI.refreshIcons();
     };
 
+    const normalizeBranch = (val) => {
+      if (!val) return "";
+      const cleaned = String(val).trim().toUpperCase();
+      if (cleaned === "CS" || cleaned === "CSE") return "CSE";
+      if (cleaned === "IS" || cleaned === "ISE") return "ISE";
+      if (cleaned === "AIML" || cleaned === "AI/ML" || cleaned === "AI-ML" || cleaned === "AI_ML" || cleaned === "AI") return "AIML";
+      return cleaned;
+    };
+
     const applyFilter = () => {
       const q = (r["search-input"] ? r["search-input"].value : "").trim().toLowerCase();
-      const b = (r["branch-filter"] ? r["branch-filter"].value : "All");
+      const rawBranch = (r["branch-filter"] ? r["branch-filter"].value : "All");
+      const targetBranch = normalizeBranch(rawBranch);
 
       const filtered = students.filter((s) => {
-        const matchesBranch = b === "All" || (s.branch && s.branch.toLowerCase() === b.toLowerCase());
+        const studentBranch = normalizeBranch(s.branch || s.Branch);
+        const matchesBranch = rawBranch === "All" || !rawBranch || studentBranch === targetBranch;
         if (!matchesBranch) return false;
         if (!q) return true;
         return (
