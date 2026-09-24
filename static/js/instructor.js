@@ -28,85 +28,51 @@ const InstructorView = {
     // Render Stat Cards
     UI.renderStatGrid(r.stats, overview.stats);
 
-    // Build Table Header
+    // Build Table Header: Topic | Track | Status
     const headRow = document.createElement("tr");
-    ["Topic", ...(overview.showTrackColumn ? ["Track"] : []), "Status", "Date completed"].forEach((h) => {
+    ["Topic", "Track", "Status"].forEach((h) => {
       const th = document.createElement("th");
       th.textContent = h;
       headRow.appendChild(th);
     });
     r["topics-head"].appendChild(headRow);
 
-    // Status Navigation Pills (All, 1- Completed, 2- In progress, 3- Upcoming)
-    const renderStatusNav = () => {
-      if (!r["status-nav"]) return;
-      r["status-nav"].innerHTML = "";
+    // Remove status filter controls completely
+    if (r["status-nav"]) {
+      r["status-nav"].remove();
+    }
 
-      const totalCount = overview.topics.length;
-      const completedCount = overview.topics.filter((t) => t.status === "Completed").length;
-      const inProgressCount = overview.topics.filter((t) => t.status === "In progress").length;
-      const upcomingCount = overview.topics.filter((t) => t.status === "Upcoming").length;
-
-      const navOptions = [
-        { key: "all", label: "All", count: totalCount },
-        { key: "Completed", label: "1- Completed", count: completedCount, color: "var(--teal)" },
-        { key: "In progress", label: "2- In progress", count: inProgressCount, color: "var(--amber)" },
-        { key: "Upcoming", label: "3- Upcoming", count: upcomingCount, color: "var(--text-muted)" },
-      ];
-
-      navOptions.forEach((opt) => {
-        const btn = document.createElement("button");
-        btn.className = "pill" + (InstructorView.statusFilter === opt.key ? " active" : "");
-        if (opt.color) btn.style.setProperty("--pill-color", opt.color);
-
-        const labelSpan = document.createElement("span");
-        labelSpan.textContent = opt.label;
-        btn.appendChild(labelSpan);
-
-        const countSpan = document.createElement("span");
-        countSpan.className = "pill-count";
-        countSpan.textContent = opt.count;
-        btn.appendChild(countSpan);
-
-        btn.addEventListener("click", () => {
-          InstructorView.statusFilter = opt.key;
-          renderStatusNav();
-          renderTopicRows();
-        });
-
-        r["status-nav"].appendChild(btn);
-      });
-    };
-
-    // Render Topics Rows
+    // Render Topics Rows (Topic | Track | Status: ● Completed)
     const renderTopicRows = () => {
       r["topics-rows"].innerHTML = "";
 
-      const filteredTopics = overview.topics.filter((t) => {
-        if (InstructorView.statusFilter === "all") return true;
-        return t.status === InstructorView.statusFilter;
-      });
+      // Deduplicate only identical topic entries for the same track (frontend display only)
+      const seenTopics = new Set();
+      const uniqueTopics = [];
+      for (const t of (overview.topics || [])) {
+        const normTopic = (t.topic || "").trim().replace(/\s+/g, " ").toLowerCase();
+        const normTrack = (t.track || "").trim().toLowerCase();
+        const key = `${normTrack}:::${normTopic}`;
+        if (!seenTopics.has(key)) {
+          seenTopics.add(key);
+          uniqueTopics.push(t);
+        }
+      }
 
-      if (filteredTopics.length === 0) {
+      if (uniqueTopics.length === 0) {
         const emptyTr = document.createElement("tr");
         const emptyTd = document.createElement("td");
-        emptyTd.colSpan = overview.showTrackColumn ? 4 : 3;
+        emptyTd.colSpan = 3;
         emptyTd.className = "muted";
         emptyTd.style.textAlign = "center";
         emptyTd.style.padding = "24px 8px";
-        emptyTd.textContent = `No topics with status "${InstructorView.statusFilter}" found.`;
+        emptyTd.textContent = "No topics found.";
         emptyTr.appendChild(emptyTd);
         r["topics-rows"].appendChild(emptyTr);
         return;
       }
 
-      const statusClassMap = {
-        Completed: "status-completed",
-        "In progress": "status-in-progress",
-        Upcoming: "status-upcoming",
-      };
-
-      filteredTopics.forEach((t) => {
+      uniqueTopics.forEach((t) => {
         const tr = document.createElement("tr");
 
         // 1. Topic Title
@@ -114,102 +80,28 @@ const InstructorView = {
         tdTopic.textContent = t.topic;
         tr.appendChild(tdTopic);
 
-        // 2. Track (if All tracks)
-        if (overview.showTrackColumn) {
-          const tdTrack = document.createElement("td");
-          tdTrack.className = "muted";
-          tdTrack.textContent = t.track;
-          tr.appendChild(tdTrack);
-        }
+        // 2. Track
+        const tdTrack = document.createElement("td");
+        tdTrack.className = "muted";
+        tdTrack.textContent = t.track || (InstructorView.trackFilter !== "All tracks" ? InstructorView.trackFilter : "");
+        tr.appendChild(tdTrack);
 
-        // 3. Status Column: Dropdown selector (1- Completed, 2- In progress, 3- Upcoming)
+        // 3. Status Column: Static badge (● Completed)
         const tdStatus = document.createElement("td");
-        const selectWrap = document.createElement("div");
-        selectWrap.className = `status-select-wrap ${statusClassMap[t.status] || "status-completed"}`;
+        const badge = document.createElement("div");
+        badge.className = "status-badge";
+        badge.style.setProperty("--badge-color", "var(--teal)");
 
         const dot = document.createElement("span");
-        dot.className = "status-select-dot";
-        selectWrap.appendChild(dot);
+        dot.className = "status-badge-dot";
+        badge.appendChild(dot);
 
-        const select = document.createElement("select");
-        select.className = "status-select";
-        select.title = "Change topic status";
+        const text = document.createElement("span");
+        text.textContent = "Completed";
+        badge.appendChild(text);
 
-        const options = [
-          { value: "Completed", label: "1- Completed" },
-          { value: "In progress", label: "2- In progress" },
-          { value: "Upcoming", label: "3- Upcoming" },
-        ];
-
-        options.forEach((opt) => {
-          const optEl = document.createElement("option");
-          optEl.value = opt.value;
-          optEl.textContent = opt.label;
-          if (t.status === opt.value) optEl.selected = true;
-          select.appendChild(optEl);
-        });
-
-        const chevron = document.createElement("i");
-        chevron.setAttribute("data-lucide", "chevron-down");
-        chevron.className = "status-select-chevron";
-
-        const tdDate = document.createElement("td");
-        tdDate.className = "mono muted";
-        tdDate.textContent = t.date || "—";
-
-        select.addEventListener("change", async () => {
-          const newStatus = select.value;
-          if (newStatus === t.status) return;
-
-          selectWrap.className = `status-select-wrap ${statusClassMap[newStatus] || "status-completed"}`;
-          select.disabled = true;
-
-          try {
-            await Api.post("/api/instructor/topics/status", {
-              topic: t.topic,
-              track: t.track,
-              status: newStatus,
-            });
-
-            t.status = newStatus;
-
-            if (newStatus === "Completed" && (!t.date || t.date === "—")) {
-              const now = new Date();
-              const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-              t.date = `${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
-            } else if (newStatus === "Upcoming") {
-              t.date = "—";
-            }
-            tdDate.textContent = t.date;
-
-            // Refresh overview stats
-            const freshOverview = await Api.get(
-              `/api/instructor/overview?track=${encodeURIComponent(InstructorView.trackFilter)}`
-            );
-            overview.stats = freshOverview.stats;
-            overview.topics = freshOverview.topics;
-            UI.renderStatGrid(r.stats, overview.stats);
-
-            renderStatusNav();
-            if (InstructorView.statusFilter !== "all" && InstructorView.statusFilter !== newStatus) {
-              renderTopicRows();
-            }
-          } catch (err) {
-            console.error("Failed to update status:", err);
-            select.value = t.status;
-            selectWrap.className = `status-select-wrap ${statusClassMap[t.status] || "status-completed"}`;
-          } finally {
-            select.disabled = false;
-          }
-        });
-
-        selectWrap.appendChild(select);
-        selectWrap.appendChild(chevron);
-        tdStatus.appendChild(selectWrap);
+        tdStatus.appendChild(badge);
         tr.appendChild(tdStatus);
-
-        // 4. Date Completed
-        tr.appendChild(tdDate);
 
         r["topics-rows"].appendChild(tr);
       });
@@ -217,7 +109,6 @@ const InstructorView = {
       UI.refreshIcons();
     };
 
-    renderStatusNav();
     renderTopicRows();
 
     UI.clear(content);

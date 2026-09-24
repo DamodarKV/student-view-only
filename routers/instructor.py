@@ -18,25 +18,24 @@ def get_overview(track: str = "All tracks"):
     topics = data.get_topics(track)
     show_track_column = track == "All tracks"
 
-    completed = sum(1 for t in topics if t["status"] == "Completed")
-    in_progress = sum(1 for t in topics if t["status"] == "In progress")
-    upcoming = sum(1 for t in topics if t["status"] == "Upcoming")
-    syllabus_pct = data.get_track_data(track)["syllabus"]
+    total_topics = len(topics)
+    completed = total_topics
+    in_progress = 0
+    upcoming = 0
 
     stats = [
-        {"key": "syllabus", "label": "Syllabus completion", "value": str(syllabus_pct), "unit": "%", "icon": "CheckCircle2", "fill": syllabus_pct},
-        {"key": "completed", "label": "Topics completed", "value": str(completed), "unit": f"of {len(topics)}", "icon": "ClipboardCheck"},
-        {"key": "inProgress", "label": "Topics in progress", "value": str(in_progress), "unit": "topics", "icon": "ClipboardList", "tone": "amber"},
-        {"key": "upcoming", "label": "Topics upcoming", "value": str(upcoming), "unit": "topics", "icon": "Calendar"},
+        {"key": "syllabus", "label": "Syllabus completion", "value": "100", "unit": "%", "icon": "CheckCircle2", "fill": 100},
+        {"key": "completed", "label": "Topics completed", "value": str(completed), "unit": f"of {total_topics}", "icon": "ClipboardCheck"},
+        {"key": "inProgress", "label": "Topics in progress", "value": "0", "unit": "topics", "icon": "ClipboardList", "tone": "amber"},
+        {"key": "upcoming", "label": "Topics upcoming", "value": "0", "unit": "topics", "icon": "Calendar"},
     ]
 
     topics_view = [
         {
             "topic": t["topic"],
             "track": t["track"],
-            "status": t["status"],
-            "statusMeta": data.TOPIC_STATUS_META[t["status"]],
-            "date": data.format_topic_date(t["date"]),
+            "status": "Completed",
+            "statusMeta": {"label": "Completed", "color": "#3FBFA6"},
         }
         for t in topics
     ]
@@ -47,7 +46,7 @@ def get_overview(track: str = "All tracks"):
         "stats": stats,
         "topics": topics_view,
         "trackOptions": data.TRACK_OPTIONS,
-        "statusOptions": data.STATUS_OPTIONS,
+        "statusOptions": ["Completed"],
     }
 
 
@@ -108,25 +107,5 @@ def create_topic(payload: NewTopic):
     }
 
 
-class TopicStatusPayload(BaseModel):
-    topic: str
-    track: str
-    status: str
-    date: Optional[str] = None
 
-
-@router.post("/topics/status")
-def update_topic_status(payload: TopicStatusPayload):
-    if payload.status not in data.STATUS_OPTIONS:
-        raise HTTPException(status_code=400, detail="Unknown status")
-    updated = data.update_topic_status(payload.topic, payload.track, payload.status, payload.date)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Topic not found")
-    return {
-        "status": "success",
-        "topic": payload.topic,
-        "track": payload.track,
-        "newStatus": payload.status,
-        "statusMeta": data.TOPIC_STATUS_META[payload.status],
-    }
 

@@ -808,40 +808,48 @@ def _build_topics_from_instructor_doc(doc: Dict[str, Any]) -> Tuple[Dict[str, Li
         ai_data = doc.get("ai_track", {})
         if "syllabus_percent" in ai_data:
             syllabus["AI Track"] = int(ai_data["syllabus_percent"])
+        ai_seen = set()
         for t in ai_data.get("topics", []):
-            by_track["AI Track"].append({
-                "topic": t.get("topic", ""),
-                "track": "AI Track",
-                "status": _normalize_topic_status(t.get("status", "Upcoming")),
-                "date": t.get("date_completed") or t.get("date"),
-            })
+            name = (t.get("topic") or "").strip()
+            key = " ".join(name.split()).lower()
+            if key and key not in ai_seen:
+                ai_seen.add(key)
+                by_track["AI Track"].append({
+                    "topic": name,
+                    "track": "AI Track",
+                    "status": "Completed",
+                })
 
         devops_data = doc.get("devops_track", {})
         if "syllabus_percent" in devops_data:
             syllabus["DevOps Track"] = int(devops_data["syllabus_percent"])
+        devops_seen = set()
         for t in devops_data.get("topics", []):
-            by_track["DevOps Track"].append({
-                "topic": t.get("topic", ""),
-                "track": "DevOps Track",
-                "status": _normalize_topic_status(t.get("status", "Upcoming")),
-                "date": t.get("date_completed") or t.get("date"),
-            })
+            name = (t.get("topic") or "").strip()
+            key = " ".join(name.split()).lower()
+            if key and key not in devops_seen:
+                devops_seen.add(key)
+                by_track["DevOps Track"].append({
+                    "topic": name,
+                    "track": "DevOps Track",
+                    "status": "Completed",
+                })
 
     if not by_track["AI Track"]:
         by_track["AI Track"] = [
-            {"topic": "API Development", "date": "2026-08-06", "status": "Completed", "track": "AI Track"},
-            {"topic": "LLM Tokenization", "date": "2026-08-11", "status": "Completed", "track": "AI Track"},
-            {"topic": "ChromaDB Vector Store", "date": "2026-08-18", "status": "Completed", "track": "AI Track"},
-            {"topic": "SQL & NoSQL API Integration", "date": "2026-08-25", "status": "In progress", "track": "AI Track"},
-            {"topic": "Autonomous Agents", "date": None, "status": "Upcoming", "track": "AI Track"},
+            {"topic": "API Development", "status": "Completed", "track": "AI Track"},
+            {"topic": "LLM Tokenization", "status": "Completed", "track": "AI Track"},
+            {"topic": "ChromaDB Vector Store", "status": "Completed", "track": "AI Track"},
+            {"topic": "SQL & NoSQL API Integration", "status": "Completed", "track": "AI Track"},
+            {"topic": "Autonomous Agents", "status": "Completed", "track": "AI Track"},
         ]
     if not by_track["DevOps Track"]:
         by_track["DevOps Track"] = [
-            {"topic": "Docker Fundamentals", "date": "2026-08-07", "status": "Completed", "track": "DevOps Track"},
-            {"topic": "Git & Docker Workflow", "date": "2026-08-14", "status": "Completed", "track": "DevOps Track"},
-            {"topic": "CI/CD Pipeline Automation", "date": "2026-08-21", "status": "Completed", "track": "DevOps Track"},
-            {"topic": "Kubernetes Orchestration", "date": "2026-08-26", "status": "In progress", "track": "DevOps Track"},
-            {"topic": "Cloud Infrastructure & Monitoring", "date": None, "status": "Upcoming", "track": "DevOps Track"},
+            {"topic": "Docker Fundamentals", "status": "Completed", "track": "DevOps Track"},
+            {"topic": "Git & Docker Workflow", "status": "Completed", "track": "DevOps Track"},
+            {"topic": "CI/CD Pipeline Automation", "status": "Completed", "track": "DevOps Track"},
+            {"topic": "Kubernetes Orchestration", "status": "Completed", "track": "DevOps Track"},
+            {"topic": "Cloud Infrastructure & Monitoring", "status": "Completed", "track": "DevOps Track"},
         ]
 
     return by_track, syllabus
@@ -889,7 +897,6 @@ def get_topics(track_filter: str) -> List[Dict[str, Any]]:
     if track_filter != "All tracks":
         return list(_TOPICS_BY_TRACK.get(track_filter, []))
     combined = [*_TOPICS_BY_TRACK.get("AI Track", []), *_TOPICS_BY_TRACK.get("DevOps Track", [])]
-    combined.sort(key=lambda t: (t["date"] is None, t["date"] or ""))
     return combined
 
 
