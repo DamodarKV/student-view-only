@@ -221,6 +221,19 @@ def is_student_selected(student_or_score: Any) -> bool:
             if not agg_val:
                 return False
         score = float(agg_val)
+        mock_score = None
+        if isinstance(student_or_score, dict):
+            mock_score = student_or_score.get("mockInterview")
+            if mock_score is None:
+                raw_scores = student_or_score.get("rawScores", {})
+                if isinstance(raw_scores, dict):
+                    mock_score = raw_scores.get("mockInterview")
+        if mock_score is not None:
+            try:
+                if float(mock_score) <= 0.0:
+                    return False
+            except (ValueError, TypeError):
+                return False
         return score >= 60.0
     except (ValueError, TypeError):
         return False
@@ -229,8 +242,8 @@ def is_student_selected(student_or_score: Any) -> bool:
 def classify_student_by_performance(student_or_val: Any) -> str:
     """
     Classifies a student as 'Selected' or 'Rejected' based strictly on:
-    Aggregate Score >= 60.0 -> Selected (Model B: 48 students selected)
-    Aggregate Score < 60.0 (or missing/invalid) -> Rejected
+    Aggregate Score >= 60.0 and Mock Interview > 0 -> Selected (Model B: 47 students selected)
+    Aggregate Score < 60.0 or Mock Interview <= 0 -> Rejected
     """
     return "Selected" if is_student_selected(student_or_val) else "Rejected"
 
@@ -450,10 +463,14 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         total_weightage = final_aggregate
 
         # Selection rule:
-        # Selection rule:
-        # SELECTED = Aggregate Score >= 50
+        # SELECTED = Aggregate Score >= 60.0 AND Mock Interview > 0
         # Otherwise: REJECTED
-        norm_student_status = "Selected" if is_student_selected(final_aggregate) else "Rejected"
+        eval_candidate = {
+            "aggregateScore": final_aggregate,
+            "mockInterview": weighted_scores.get("mockInterview", 0.0),
+            "rawScores": raw_scores,
+        }
+        norm_student_status = "Selected" if is_student_selected(eval_candidate) else "Rejected"
 
         on_watchlist = bool(
             watchlist_status and str(watchlist_status).strip().lower() in ("watchlist", "true", "yes")
@@ -774,7 +791,7 @@ def select_panel_students(
         if track_label == "All tracks":
             student_track = "DevOps Track" if (s.get("hasDevops") and (s.get("devopsScore") or 0) > (s.get("aiScore") or 0)) else "AI Track"
         agg_val = s.get("aggregateScore") if s.get("aggregateScore") is not None else s.get("average")
-        is_sel = is_student_selected(agg_val)
+        is_sel = is_student_selected(s)
         return {
             "name": s["name"],
             "registerNumber": s["registerNumber"],
@@ -1625,34 +1642,34 @@ def get_student_weights_summary(register_number: Optional[str] = None) -> Option
 
     assessment_items = [
         {
-            "assessmentType": "AI Quiz",
-            "weightage": 25.0,
-            "studentScore": ai_quiz,
-            "studentScoreDisplay": student.get("aiQuizDisplay") or _display_score(ai_quiz),
-        },
-        {
-            "assessmentType": "DevOps Quiz",
-            "weightage": 25.0,
-            "studentScore": devops_quiz,
-            "studentScoreDisplay": student.get("devopsQuizDisplay") or _display_score(devops_quiz),
-        },
-        {
-            "assessmentType": "Assignment",
-            "weightage": 20.0,
-            "studentScore": assignment,
-            "studentScoreDisplay": student.get("assignmentDisplay") or _display_score(assignment),
-        },
-        {
             "assessmentType": "Final Assessment",
-            "weightage": 15.0,
+            "weightage": 25.0,
             "studentScore": final_assessment,
             "studentScoreDisplay": student.get("finalAssessmentDisplay") or _display_score(final_assessment),
         },
         {
             "assessmentType": "Mock Interview",
-            "weightage": 15.0,
+            "weightage": 25.0,
             "studentScore": mock_interview,
             "studentScoreDisplay": student.get("mockInterviewDisplay") or _display_score(mock_interview),
+        },
+        {
+            "assessmentType": "AI Quiz",
+            "weightage": 20.0,
+            "studentScore": ai_quiz,
+            "studentScoreDisplay": student.get("aiQuizDisplay") or _display_score(ai_quiz),
+        },
+        {
+            "assessmentType": "DevOps Quiz",
+            "weightage": 15.0,
+            "studentScore": devops_quiz,
+            "studentScoreDisplay": student.get("devopsQuizDisplay") or _display_score(devops_quiz),
+        },
+        {
+            "assessmentType": "Assignment",
+            "weightage": 15.0,
+            "studentScore": assignment,
+            "studentScoreDisplay": student.get("assignmentDisplay") or _display_score(assignment),
         },
     ]
 

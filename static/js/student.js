@@ -353,7 +353,7 @@ const StudentView = {
 
     if (list.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">No weights available.</td>`;
+      tr.innerHTML = `<td colspan="3" style="text-align:center; color:var(--text-muted); padding:16px;">No assessment scores available.</td>`;
       tbody.appendChild(tr);
       UI.refreshIcons();
       return;
@@ -375,24 +375,21 @@ const StudentView = {
       }
       if (!student) return "—";
       const norm = (type || "").toLowerCase().replace(/[^a-z]/g, "");
+      if (norm.includes("final")) return formatVal(student.finalAssessmentDisplay ?? student.finalAssessment);
+      if (norm.includes("mock") || norm.includes("interview")) return formatVal(student.mockInterviewDisplay ?? student.mockInterview);
       if (norm.includes("aiquiz") || norm === "ai") return formatVal(student.aiQuizDisplay ?? student.aiQuiz);
       if (norm.includes("devopsquiz") || norm === "devops") return formatVal(student.devopsQuizDisplay ?? student.devopsQuiz);
       if (norm.includes("assignment")) return formatVal(student.assignmentDisplay ?? student.assignment);
-      if (norm.includes("final")) return formatVal(student.finalAssessmentDisplay ?? student.finalAssessment);
-      if (norm.includes("mock") || norm.includes("interview")) return formatVal(student.mockInterviewDisplay ?? student.mockInterview);
       return "—";
     };
 
     list.forEach((w, idx) => {
       const tr = document.createElement("tr");
-      const val = Number(w.weightage);
-      const formattedWeight = Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(2));
       const scoreText = getScoreForType(w.assessmentType, w);
 
       tr.innerHTML = `
         <td class="mono muted">${idx + 1}</td>
         <td style="font-weight:500;">${w.assessmentType}</td>
-        <td class="mono" style="text-align:right;">${formattedWeight}%</td>
         <td class="mono" style="text-align:right; font-weight:600;">${scoreText}</td>
       `;
 
@@ -411,7 +408,6 @@ const StudentView = {
       tfootRow.style.fontWeight = "600";
       tfootRow.innerHTML = `
         <td colspan="2" style="font-weight:600; padding-top:10px;">Aggregate Score</td>
-        <td class="mono muted" style="text-align:right; padding-top:10px;">100%</td>
         <td class="mono" style="text-align:right; font-weight:700; color:var(--teal, #3FBFA6); padding-top:10px;">${aggFormatted}</td>
       `;
       refs["weights-footer"].appendChild(tfootRow);
