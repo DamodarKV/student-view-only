@@ -24,7 +24,7 @@ def get_overview(track: str = "All tracks"):
     upcoming = 0
 
     stats = [
-        {"key": "syllabus", "label": "Syllabus completion", "value": "100", "unit": "%", "icon": "CheckCircle2", "fill": 100},
+        {"key": "syllabus", "label": "Syllabus completion", "value": "100", "unit": "%", "icon": "CheckCircle2", "fill": 100, "syllabus_completion_rate": 100},
         {"key": "completed", "label": "Topics completed", "value": str(completed), "unit": f"of {total_topics}", "icon": "ClipboardCheck"},
         {"key": "inProgress", "label": "Topics in progress", "value": "0", "unit": "topics", "icon": "ClipboardList", "tone": "amber"},
         {"key": "upcoming", "label": "Topics upcoming", "value": "0", "unit": "topics", "icon": "Calendar"},
@@ -42,6 +42,7 @@ def get_overview(track: str = "All tracks"):
 
     return {
         "track": track,
+        "syllabus_completion_rate": 100,
         "showTrackColumn": show_track_column,
         "stats": stats,
         "topics": topics_view,

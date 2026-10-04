@@ -26,6 +26,15 @@ const AdminView = {
       onChange: (opt) => { AdminView.trackFilter = opt; AdminView.render(content); },
     });
 
+    if (overview.syllabus_completion_rate !== undefined && Array.isArray(overview.stats)) {
+      const syllabusStat = overview.stats.find((s) => s.key === "syllabus");
+      if (syllabusStat) {
+        syllabusStat.value = String(overview.syllabus_completion_rate);
+        syllabusStat.fill = Number(overview.syllabus_completion_rate);
+        syllabusStat.syllabus_completion_rate = Number(overview.syllabus_completion_rate);
+      }
+    }
+
     UI.renderStatGrid(r.stats, overview.stats, {
       strength: () => AdminView.openAttendanceModal(),
       score: () => AdminView.openScoreModal(),
@@ -167,8 +176,15 @@ const AdminView = {
           wlBtn.classList.toggle("active", s.onWatchlist);
           wlBtn.title = s.onWatchlist ? "Remove from watchlist" : "Add to watchlist";
           wlBtn.querySelector("span").textContent = s.onWatchlist ? "Watching" : "Watch";
-          // Update stat cards immediately
           const overview = await Api.get(`/api/admin/overview?track=${encodeURIComponent(AdminView.trackFilter)}`);
+          if (overview.syllabus_completion_rate !== undefined && Array.isArray(overview.stats)) {
+            const syllabusStat = overview.stats.find((s) => s.key === "syllabus");
+            if (syllabusStat) {
+              syllabusStat.value = String(overview.syllabus_completion_rate);
+              syllabusStat.fill = Number(overview.syllabus_completion_rate);
+              syllabusStat.syllabus_completion_rate = Number(overview.syllabus_completion_rate);
+            }
+          }
           const statBox = content.querySelector("[data-el='stats']");
           if (statBox) {
             UI.renderStatGrid(statBox, overview.stats, {

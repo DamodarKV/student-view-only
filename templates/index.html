@@ -6,7 +6,7 @@
 <title>Cohort Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/style.css?v=17" />
+<link rel="stylesheet" href="/static/css/style.css?v=20" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js"></script>
 </head>
@@ -281,27 +281,30 @@
         <select class="field-input" data-el="sort-select" style="width:175px; padding:7px 10px; font-size:13px; font-weight:500;">
           <option value="avg-desc">Score: High to Low &#9660;</option>
           <option value="avg-asc">Score: Low to High &#9650;</option>
-          <option value="weightage-desc">Performance: High to Low</option>
           <option value="name-asc">Name: A to Z</option>
         </select>
       </div>
     </div>
     <div class="card table-card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Register No.</th>
-            <th>Student</th>
-            <th>Branch</th>
-            <th>AI Aggregate Score</th>
-            <th>DevOps Aggregate Score</th>
-            <th>Aggregate Score</th>
-            <th>Performance</th>
-            <th>Watchlist</th>
-          </tr>
-        </thead>
-        <tbody data-el="rows"></tbody>
-      </table>
+      <div class="table-container">
+        <table class="data-table roster-table">
+          <thead>
+            <tr>
+              <th class="col-reg">Register No.</th>
+              <th class="col-student">Student</th>
+              <th class="col-branch">Branch</th>
+              <th class="col-ai-quiz">AI Quiz</th>
+              <th class="col-devops-quiz">DevOps Quiz</th>
+              <th class="col-assignment">Assignment</th>
+              <th class="col-final-assessment">Final Assessment</th>
+              <th class="col-mock-interview">Mock Interview</th>
+              <th class="col-agg">Aggregate Score</th>
+              <th class="col-watchlist">Watchlist</th>
+            </tr>
+          </thead>
+          <tbody data-el="rows"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>
@@ -375,7 +378,7 @@
 <script src="/static/js/charts.js?v=13"></script>
 <script src="/static/js/admin.js?v=14"></script>
 <script src="/static/js/instructor.js?v=14"></script>
-<script src="/static/js/student.js?v=22"></script>
+<script src="/static/js/student.js?v=24"></script>
 <script src="/static/js/app.js?v=14"></script>
 </body>
 </html>

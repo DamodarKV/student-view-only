@@ -28,13 +28,21 @@ const UI = {
     const r = UI.refs(frag);
     r.label.textContent = stat.label;
     r.icon.setAttribute("data-lucide", UI.iconSlug(stat.icon));
-    r.value.textContent = stat.value;
-    if (stat.tone === "amber") r.value.classList.add("tone-amber");
-    if (stat.tone === "coral") r.value.classList.add("tone-coral");
-    r.unit.textContent = stat.unit;
-    if (typeof stat.fill === "number") {
+    if (stat.key === "syllabus") {
+      const val = stat.syllabus_completion_rate !== undefined ? stat.syllabus_completion_rate : (stat.value || 100);
+      r.value.textContent = String(val);
+      r.unit.textContent = stat.unit || "%";
       r["fill-track"].hidden = false;
-      r.fill.style.width = `${stat.fill}%`;
+      r.fill.style.width = `${val}%`;
+    } else {
+      r.value.textContent = stat.value;
+      if (stat.tone === "amber") r.value.classList.add("tone-amber");
+      if (stat.tone === "coral") r.value.classList.add("tone-coral");
+      r.unit.textContent = stat.unit;
+      if (typeof stat.fill === "number") {
+        r["fill-track"].hidden = false;
+        r.fill.style.width = `${stat.fill}%`;
+      }
     }
     if (stat.clickable && onClick) {
       r.card.classList.add("clickable");

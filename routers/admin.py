@@ -41,6 +41,7 @@ def get_overview(track: str = Query("All tracks")):
     assessment = [item for item in d["assessment"] if item.get("track") != "DevDockerGit"]
     return {
         "track": track,
+        "syllabus_completion_rate": 100,
         "stats": data.build_stats(d),
         "assessment": assessment,
         "warning": d["warning"],

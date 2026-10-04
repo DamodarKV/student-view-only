@@ -249,8 +249,69 @@ button, input, select { font-family: var(--font-ui); }
 }
 .data-table td.muted { color: var(--text-muted); }
 .data-table td.mono { font-family: var(--font-data); }
-.table-card { padding: 8px 20px; }
+.table-card {
+  padding: 8px 18px;
+  overflow: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
 .table-card .data-table th { padding: 12px 8px 10px 8px; }
+
+/* Responsive Table Container */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.table-container::-webkit-scrollbar {
+  height: 6px;
+}
+.table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.table-container::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+/* ---------- Student Roster Table ---------- */
+.roster-table {
+  width: max-content;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+
+.table-card .roster-table th,
+.table-card .roster-table td,
+.roster-table th,
+.roster-table td {
+  padding: 10px 12px;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.roster-table th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  vertical-align: bottom;
+}
+
+.roster-table td {
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
 
 .student-panel-scroll {
   max-height: 290px;
@@ -562,13 +623,7 @@ button, input, select { font-family: var(--font-ui); }
   -webkit-overflow-scrolling: touch;
 }
 
-.table-card {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* Keep wide data tables readable without crushing columns */
-.table-card .data-table,
 [data-el="topics-table"] {
   min-width: 640px;
 }

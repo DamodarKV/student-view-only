@@ -242,6 +242,16 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
             "aiScoreDisplay": _display_score(ai_raw),
             "devopsScoreDisplay": _display_score(devops_raw),
             "averageDisplay": _display_score(aggregate),
+            "AIQuiz": ai_score,
+            "DevOpsQuiz": devops_score if has_devops else None,
+            "Assignment": None,
+            "FinalAssessment": None,
+            "MockInterview": None,
+            "aiQuiz": ai_score,
+            "devopsQuiz": devops_score if has_devops else None,
+            "assignment": None,
+            "finalAssessment": None,
+            "mockInterview": None,
             "mentor": mentor,
             "status": status,
             "studentStatus": norm_student_status,
@@ -658,8 +668,8 @@ def _build_dynamic_track_assessment(
 def _build_raw_data_from_students(roster: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     if not roster:
         return {
-            "AI Track": {"strength": 0, "score": 0, "watchlist": 0, "risk": 0, "classes": 6, "syllabus": 0, "assessment": [], "warning": {"critical": 0, "moderate": 0, "onTrack": 0}, "attendance": [], "dailyScores": [], "students": {"critical": [], "moderate": [], "onTrack": [], "selected": [], "rejected": []}, "panelCounts": {"selected": 0, "rejected": 0}, "panelStudents": {"selected": [], "rejected": []}},
-            "DevOps Track": {"strength": 0, "score": 0, "watchlist": 0, "risk": 0, "classes": 5, "syllabus": 0, "assessment": [], "warning": {"critical": 0, "moderate": 0, "onTrack": 0}, "attendance": [], "dailyScores": [], "students": {"critical": [], "moderate": [], "onTrack": [], "selected": [], "rejected": []}, "panelCounts": {"selected": 0, "rejected": 0}, "panelStudents": {"selected": [], "rejected": []}},
+            "AI Track": {"strength": 0, "score": 0, "watchlist": 0, "risk": 0, "classes": 6, "syllabus": 100, "syllabus_completion_rate": 100, "assessment": [], "warning": {"critical": 0, "moderate": 0, "onTrack": 0}, "attendance": [], "dailyScores": [], "students": {"critical": [], "moderate": [], "onTrack": [], "selected": [], "rejected": []}, "panelCounts": {"selected": 0, "rejected": 0}, "panelStudents": {"selected": [], "rejected": []}},
+            "DevOps Track": {"strength": 0, "score": 0, "watchlist": 0, "risk": 0, "classes": 5, "syllabus": 100, "syllabus_completion_rate": 100, "assessment": [], "warning": {"critical": 0, "moderate": 0, "onTrack": 0}, "attendance": [], "dailyScores": [], "students": {"critical": [], "moderate": [], "onTrack": [], "selected": [], "rejected": []}, "panelCounts": {"selected": 0, "rejected": 0}, "panelStudents": {"selected": [], "rejected": []}},
         }
 
     total_count = len(roster)
@@ -747,7 +757,8 @@ def _build_raw_data_from_students(roster: List[Dict[str, Any]]) -> Dict[str, Dic
             "watchlist": len(ai_watchlist),
             "risk": len(ai_critical),
             "classes": 6,
-            "syllabus": TRACK_SYLLABUS.get("AI Track", 58),
+            "syllabus": 100,
+            "syllabus_completion_rate": 100,
             "assessment": ai_assessment,
             "warning": {"critical": len(ai_critical), "moderate": len(ai_moderate), "onTrack": len(ai_ontrack)},
             "attendance": ai_attendance,
@@ -768,7 +779,8 @@ def _build_raw_data_from_students(roster: List[Dict[str, Any]]) -> Dict[str, Dic
             "watchlist": len(do_watchlist),
             "risk": len(do_critical),
             "classes": 5,
-            "syllabus": TRACK_SYLLABUS.get("DevOps Track", 74),
+            "syllabus": 100,
+            "syllabus_completion_rate": 100,
             "assessment": do_assessment,
             "warning": {"critical": len(do_critical), "moderate": len(do_moderate), "onTrack": len(do_ontrack)},
             "attendance": do_attendance,
@@ -802,12 +814,10 @@ def _normalize_topic_status(s: Optional[str]) -> str:
 
 def _build_topics_from_instructor_doc(doc: Dict[str, Any]) -> Tuple[Dict[str, List[Dict[str, Any]]], Dict[str, int]]:
     by_track: Dict[str, List[Dict[str, Any]]] = {"AI Track": [], "DevOps Track": []}
-    syllabus: Dict[str, int] = {"AI Track": 58, "DevOps Track": 74}
+    syllabus: Dict[str, int] = {"AI Track": 100, "DevOps Track": 100}
 
     if doc:
         ai_data = doc.get("ai_track", {})
-        if "syllabus_percent" in ai_data:
-            syllabus["AI Track"] = int(ai_data["syllabus_percent"])
         ai_seen = set()
         for t in ai_data.get("topics", []):
             name = (t.get("topic") or "").strip()
@@ -821,8 +831,6 @@ def _build_topics_from_instructor_doc(doc: Dict[str, Any]) -> Tuple[Dict[str, Li
                 })
 
         devops_data = doc.get("devops_track", {})
-        if "syllabus_percent" in devops_data:
-            syllabus["DevOps Track"] = int(devops_data["syllabus_percent"])
         devops_seen = set()
         for t in devops_data.get("topics", []):
             name = (t.get("topic") or "").strip()
@@ -1448,7 +1456,8 @@ def _build_all_tracks_data() -> Dict[str, Any]:
         "watchlist": len(watchlist_students),
         "risk": crit_count,
         "classes": ai["classes"] + devops["classes"],
-        "syllabus": round((ai["syllabus"] + devops["syllabus"]) / 2),
+        "syllabus": 100,
+        "syllabus_completion_rate": 100,
         "assessment": [*ai["assessment"], *devops["assessment"]],
         "warning": warning,
         "attendance": attendance,
@@ -1483,7 +1492,7 @@ def build_stats(d: Dict[str, Any]) -> List[Dict[str, Any]]:
         {"key": "watchlist", "label": "Students on watchlist", "value": str(d["watchlist"]), "unit": "students", "icon": "Eye", "tone": "amber", "clickable": True, "hint": "View students on watchlist"},
         {"key": "risk", "label": "Students at risk", "value": str(d["risk"]), "unit": "students", "icon": "AlertTriangle", "tone": "coral", "clickable": True, "hint": "View at-risk students (< 50)"},
         {"key": "classes", "label": "Classes assigned", "value": str(d["classes"]), "unit": "classes", "icon": "ClipboardList"},
-        {"key": "syllabus", "label": "Syllabus completion rate", "value": str(d["syllabus"]), "unit": "%", "icon": "CheckCircle2", "fill": d["syllabus"]},
+        {"key": "syllabus", "label": "Syllabus completion rate", "value": "100", "unit": "%", "icon": "CheckCircle2", "fill": 100, "syllabus_completion_rate": 100},
     ]
 
 
@@ -1522,7 +1531,7 @@ STUDENT_PROFILE: Dict[str, Any] = {
 
 STUDENT_STATS: List[Dict[str, Any]] = [
     {"key": "score", "label": "My average score", "value": str(STUDENT_ROSTER[0]["averageDisplay"]) if STUDENT_ROSTER else "70%", "unit": "", "icon": "TrendingUp", "fill": STUDENT_ROSTER[0]["average"] if STUDENT_ROSTER else 70},
-    {"key": "syllabus", "label": "Syllabus completion", "value": "75", "unit": "%", "icon": "CheckCircle2", "fill": 75},
+    {"key": "syllabus", "label": "Syllabus completion", "value": "100", "unit": "%", "icon": "CheckCircle2", "fill": 100, "syllabus_completion_rate": 100},
     {"key": "assignments", "label": "Assignments completed", "value": "14", "unit": "of 18", "icon": "ClipboardCheck"},
     {"key": "attendance", "label": "Attendance rate", "value": "90", "unit": "%", "icon": "Calendar"},
     {"key": "streak", "label": "Current streak", "value": "4", "unit": "days active", "icon": "Flame"},

@@ -324,6 +324,7 @@ def get_my_dashboard():
     return {
         "profile": data.STUDENT_PROFILE,
         "profileMeta": data.CATEGORY_META[data.STUDENT_PROFILE["status"]],
+        "syllabus_completion_rate": 100,
         "stats": data.STUDENT_STATS,
         "scoreTrend": data.SCORE_TREND,
         "moduleScores": data.MODULE_SCORES,

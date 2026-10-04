@@ -31,7 +31,7 @@ const StudentView = {
       UI.clear(r.rows);
       if (sortedList.length === 0) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted, #8D98A6);">No students found</td>`;
+        tr.innerHTML = `<td colspan="10" style="text-align:center; padding:32px; color:var(--text-muted, #8D98A6);">No students found</td>`;
         r.rows.appendChild(tr);
         return;
       }
@@ -49,12 +49,15 @@ const StudentView = {
           }
         };
 
+        // 1. Register No.
         const tdReg = document.createElement("td");
-        tdReg.className = "mono";
+        tdReg.className = "mono col-reg";
         tdReg.appendChild(UI.linkCell(s.registerNumber, navigateToStudent));
         tr.appendChild(tdReg);
 
+        // 2. Student
         const tdName = document.createElement("td");
+        tdName.className = "col-student";
         tdName.style.cursor = "pointer";
         tdName.appendChild(UI.linkCell(s.name, navigateToStudent));
         tdName.addEventListener("click", (e) => {
@@ -64,39 +67,53 @@ const StudentView = {
         });
         tr.appendChild(tdName);
 
+        // 3. Branch
         const tdBranch = document.createElement("td");
-        tdBranch.className = "muted";
+        tdBranch.className = "muted col-branch";
         tdBranch.textContent = s.branch || "—";
         tr.appendChild(tdBranch);
 
+        // 4. AI Quiz (existing AI score)
         const tdAi = document.createElement("td");
-        tdAi.className = "mono";
-        tdAi.textContent = s.aiScoreDisplay || "—";
+        tdAi.className = "mono col-score col-ai-quiz";
+        tdAi.textContent = (s.AIQuiz !== undefined && s.AIQuiz !== null) ? String(s.AIQuiz) : (s.aiScoreDisplay || "—");
         tr.appendChild(tdAi);
 
+        // 5. DevOps Quiz (existing DevOps score)
         const tdDevops = document.createElement("td");
-        tdDevops.className = "mono";
-        tdDevops.textContent = s.hasDevops ? (s.devopsScoreDisplay || "—") : "—";
+        tdDevops.className = "mono col-score col-devops-quiz";
+        tdDevops.textContent = s.hasDevops ? ((s.DevOpsQuiz !== undefined && s.DevOpsQuiz !== null) ? String(s.DevOpsQuiz) : (s.devopsScoreDisplay || "—")) : "—";
         tr.appendChild(tdDevops);
 
+        // 6. Assignment (null for now -> "—")
+        const tdAssignment = document.createElement("td");
+        tdAssignment.className = "mono col-score col-assignment muted";
+        tdAssignment.textContent = (s.Assignment !== undefined && s.Assignment !== null && s.Assignment !== "") ? String(s.Assignment) : "—";
+        tr.appendChild(tdAssignment);
+
+        // 7. Final Assessment (null for now -> "—")
+        const tdFinal = document.createElement("td");
+        tdFinal.className = "mono col-score col-final-assessment muted";
+        tdFinal.textContent = (s.FinalAssessment !== undefined && s.FinalAssessment !== null && s.FinalAssessment !== "") ? String(s.FinalAssessment) : "—";
+        tr.appendChild(tdFinal);
+
+        // 8. Mock Interview (null for now -> "—")
+        const tdMock = document.createElement("td");
+        tdMock.className = "mono col-score col-mock-interview muted";
+        tdMock.textContent = (s.MockInterview !== undefined && s.MockInterview !== null && s.MockInterview !== "") ? String(s.MockInterview) : "—";
+        tr.appendChild(tdMock);
+
+        // 9. Aggregate Score
         const tdAvg = document.createElement("td");
-        tdAvg.className = "mono";
+        tdAvg.className = "mono col-score col-agg";
         tdAvg.style.fontWeight = "600";
         tdAvg.style.color = s.statusColor;
         tdAvg.textContent = s.averageDisplay || (s.average !== undefined ? String(s.average) : "—");
         tr.appendChild(tdAvg);
 
-        const tdPerformance = document.createElement("td");
-        tdPerformance.className = "mono";
-        if (s.hasWeights) {
-          const total = Number(s.totalWeightage) || 0;
-          tdPerformance.textContent = `${Number.isInteger(total) ? total : total.toFixed(1)}%`;
-        } else {
-          tdPerformance.textContent = "—";
-        }
-        tr.appendChild(tdPerformance);
-
+        // 10. Watchlist
         const tdWl = document.createElement("td");
+        tdWl.className = "col-watchlist";
         const wlBtn = document.createElement("button");
         wlBtn.className = "watchlist-mini-btn" + (s.onWatchlist ? " active" : "");
         wlBtn.title = s.onWatchlist ? "Remove from watchlist" : "Add to watchlist";
