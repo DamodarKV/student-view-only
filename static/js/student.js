@@ -73,42 +73,60 @@ const StudentView = {
         tdBranch.textContent = s.branch || "—";
         tr.appendChild(tdBranch);
 
-        // 4. AI Quiz (existing AI score)
+        const formatScoreText = (val, displayVal) => {
+          if (displayVal !== undefined && displayVal !== null && displayVal !== "" && displayVal !== "—") {
+            return String(displayVal).replace(/%$/, "").trim();
+          }
+          if (val === null || val === undefined || val === "") return "—";
+          return String(val).replace(/%$/, "").trim();
+        };
+
+        // 4. AI Quiz (from student's actual AI Quiz assessment mark)
         const tdAi = document.createElement("td");
         tdAi.className = "mono col-score col-ai-quiz";
-        tdAi.textContent = (s.AIQuiz !== undefined && s.AIQuiz !== null) ? String(s.AIQuiz) : (s.aiScoreDisplay || "—");
+        const aiText = formatScoreText(s.aiQuiz, s.aiQuizDisplay);
+        tdAi.textContent = aiText;
+        if (aiText === "—") tdAi.classList.add("muted");
         tr.appendChild(tdAi);
 
-        // 5. DevOps Quiz (existing DevOps score)
+        // 5. DevOps Quiz (from student's actual DevOps Quiz assessment mark)
         const tdDevops = document.createElement("td");
         tdDevops.className = "mono col-score col-devops-quiz";
-        tdDevops.textContent = s.hasDevops ? ((s.DevOpsQuiz !== undefined && s.DevOpsQuiz !== null) ? String(s.DevOpsQuiz) : (s.devopsScoreDisplay || "—")) : "—";
+        const devopsText = formatScoreText(s.devopsQuiz, s.devopsQuizDisplay);
+        tdDevops.textContent = devopsText;
+        if (devopsText === "—") tdDevops.classList.add("muted");
         tr.appendChild(tdDevops);
 
-        // 6. Assignment (null for now -> "—")
+        // 6. Assignment (from MongoDB assessment score)
         const tdAssignment = document.createElement("td");
-        tdAssignment.className = "mono col-score col-assignment muted";
-        tdAssignment.textContent = (s.Assignment !== undefined && s.Assignment !== null && s.Assignment !== "") ? String(s.Assignment) : "—";
+        tdAssignment.className = "mono col-score col-assignment";
+        const assignText = formatScoreText(s.assignment, s.assignmentDisplay);
+        tdAssignment.textContent = assignText;
+        if (assignText === "—") tdAssignment.classList.add("muted");
         tr.appendChild(tdAssignment);
 
-        // 7. Final Assessment (null for now -> "—")
+        // 7. Final Assessment (from MongoDB assessment score)
         const tdFinal = document.createElement("td");
-        tdFinal.className = "mono col-score col-final-assessment muted";
-        tdFinal.textContent = (s.FinalAssessment !== undefined && s.FinalAssessment !== null && s.FinalAssessment !== "") ? String(s.FinalAssessment) : "—";
+        tdFinal.className = "mono col-score col-final-assessment";
+        const finalText = formatScoreText(s.finalAssessment, s.finalAssessmentDisplay);
+        tdFinal.textContent = finalText;
+        if (finalText === "—") tdFinal.classList.add("muted");
         tr.appendChild(tdFinal);
 
-        // 8. Mock Interview (null for now -> "—")
+        // 8. Mock Interview (from MongoDB assessment score)
         const tdMock = document.createElement("td");
-        tdMock.className = "mono col-score col-mock-interview muted";
-        tdMock.textContent = (s.MockInterview !== undefined && s.MockInterview !== null && s.MockInterview !== "") ? String(s.MockInterview) : "—";
+        tdMock.className = "mono col-score col-mock-interview";
+        const mockText = formatScoreText(s.mockInterview, s.mockInterviewDisplay);
+        tdMock.textContent = mockText;
+        if (mockText === "—") tdMock.classList.add("muted");
         tr.appendChild(tdMock);
 
-        // 9. Aggregate Score
+        // 9. Aggregate Score (backend/MongoDB calculation, never recalculated on frontend)
         const tdAvg = document.createElement("td");
         tdAvg.className = "mono col-score col-agg";
         tdAvg.style.fontWeight = "600";
         tdAvg.style.color = s.statusColor;
-        tdAvg.textContent = s.averageDisplay || (s.average !== undefined ? String(s.average) : "—");
+        tdAvg.textContent = formatScoreText(s.aggregateScore ?? s.average, s.aggregateScoreDisplay ?? s.averageDisplay);
         tr.appendChild(tdAvg);
 
         // 10. Watchlist
@@ -260,9 +278,9 @@ const StudentView = {
     const totalWeightageDisplay = Number.isInteger(totalWeightage) ? String(totalWeightage) : totalWeightage.toFixed(1);
 
     const stats = [
-      { key: "ai", label: "AI Track score", value: student.aiScoreDisplay || (student.aiScore !== undefined ? String(student.aiScore) : "—"), unit: "", icon: "TrendingUp", fill: student.aiScore || 0, clickable: true, hint: "View & add topic scores" },
-      { key: "devops", label: "DevOps Track score", value: student.hasDevops ? (student.devopsScoreDisplay || String(student.devopsScore)) : "—", unit: "", icon: "TrendingUp", fill: student.hasDevops ? (student.devopsScore || 0) : 0, clickable: Boolean(student.hasDevops), hint: student.hasDevops ? "View & add topic scores" : "" },
-      { key: "avg", label: "Average score", value: student.averageDisplay || (detail.average !== undefined ? String(detail.average) : "—"), unit: "", icon: "CheckCircle2", fill: detail.average || 0 },
+      { key: "ai", label: "AI Track score", value: String(student.aiScoreDisplay || (student.aiQuiz !== undefined ? student.aiQuiz : (student.aiScore !== undefined ? student.aiScore : "—"))).replace(/%$/, ""), unit: "", icon: "TrendingUp", fill: student.aiScore || 0, clickable: true, hint: "View & add topic scores" },
+      { key: "devops", label: "DevOps Track score", value: student.hasDevops ? String(student.devopsScoreDisplay || (student.devopsQuiz !== undefined ? student.devopsQuiz : student.devopsScore)).replace(/%$/, "") : "—", unit: "", icon: "TrendingUp", fill: student.hasDevops ? (student.devopsScore || 0) : 0, clickable: Boolean(student.hasDevops), hint: student.hasDevops ? "View & add topic scores" : "" },
+      { key: "avg", label: "Average score", value: String(student.aggregateScore !== undefined && student.aggregateScore !== null ? student.aggregateScore : (student.averageDisplay || (detail.average !== undefined ? detail.average : "—"))).replace(/%$/, ""), unit: "", icon: "CheckCircle2", fill: detail.average || 0 },
       { key: "weightage", label: "Performance", value: totalWeightageDisplay, unit: "%", icon: "Percent", fill: Math.min(totalWeightage, 100), clickable: true, hint: "View weights breakdown" },
       { key: "assignments", label: "Assignments completed", value: String(detail.assignmentsDone), unit: `of ${detail.totalAssignments}`, icon: "ClipboardCheck", clickable: true, hint: "View completed assignments" },
     ];
@@ -280,11 +298,10 @@ const StudentView = {
       assignments: () => StudentView.openAssignmentsCompletedModal(student, detail),
     });
 
-    StudentView.renderWeightsTable(r.weights, weights, student.registerNumber, refreshProfile);
-
-    r["add-weight-btn"].addEventListener("click", () => {
-      StudentView.openAddWeightModal(student.registerNumber, refreshProfile);
-    });
+    StudentView.renderWeightsTable(r.weights, weights);
+    if (r["add-weight-btn"]) {
+      r["add-weight-btn"].remove();
+    }
 
     r["feedback-note"].textContent = detail.feedback.note;
     r["feedback-meta"].textContent = `${detail.feedback.from} · ${detail.feedback.date}`;
@@ -327,14 +344,14 @@ const StudentView = {
     }
   },
 
-  /** Renders the "Weights" table (assessment type + weightage) with delete action per row. */
-  renderWeightsTable(tbody, weights, registerNumber, onChanged) {
+  /** Renders the read-only "Weights" table (assessment type + weightage). */
+  renderWeightsTable(tbody, weights) {
     UI.clear(tbody);
     const list = weights || [];
 
     if (list.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" style="text-align:center; color:var(--text-muted); padding:16px;">No weights added yet. Click "+" to add one.</td>`;
+      tr.innerHTML = `<td colspan="3" style="text-align:center; color:var(--text-muted); padding:16px;">No weights available.</td>`;
       tbody.appendChild(tr);
       UI.refreshIcons();
       return;
@@ -342,10 +359,12 @@ const StudentView = {
 
     list.forEach((w, idx) => {
       const tr = document.createElement("tr");
+      const val = Number(w.weightage);
+      const formatted = Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(2));
       tr.innerHTML = `
         <td class="mono muted">${idx + 1}</td>
         <td style="font-weight:500;">${w.assessmentType}</td>
-        <td class="mono" style="text-align:right;">${w.weightage}%</td>
+        <td class="mono" style="text-align:right;">${formatted}%</td>
       `;
 
       tbody.appendChild(tr);

@@ -230,60 +230,26 @@ class DeleteWeightPayload(BaseModel):
     assessmentType: str
 
 
+@router.get("/weights")
 @router.get("/weights/{register_number}")
-def get_student_weights(register_number: str):
-    """Live-reads a student's weights (and their total) straight from MongoDB."""
+def get_student_weights(register_number: Optional[str] = None):
+    """Returns the central assessment weights from MongoDB Atlas for the student profile."""
     summary = data.get_student_weights_summary(register_number)
     if summary is None:
-        raise HTTPException(status_code=404, detail="Student not found or database unavailable")
+        raise HTTPException(status_code=404, detail="Weights configuration not available")
     return summary
 
 
 @router.post("/weight")
 def add_weight(payload: AddWeightPayload):
-    """Adds or updates an assessment-type weightage entry for a student."""
-    if not payload.assessmentType or not payload.assessmentType.strip():
-        raise HTTPException(status_code=400, detail="Assessment type cannot be empty")
-    if payload.weightage < 0 or payload.weightage > 100:
-        raise HTTPException(status_code=400, detail="Weightage must be between 0 and 100")
-
-    student = data.find_roster_student(payload.registerNumber)
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    try:
-        updated_student, updated_detail = data.add_weight_for_student(
-            payload.registerNumber, payload.assessmentType, payload.weightage
-        )
-        return {
-            "status": "success",
-            "message": f"Successfully added weightage '{payload.assessmentType}': {payload.weightage}",
-            "student": updated_student,
-            "detail": updated_detail,
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    """Weights are centrally configured and read-only."""
+    raise HTTPException(status_code=403, detail="Weights are centrally configured and read-only.")
 
 
 @router.delete("/weight")
 def delete_weight(payload: DeleteWeightPayload):
-    """Deletes an assessment-type weightage entry for a student."""
-    student = data.find_roster_student(payload.registerNumber)
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-
-    try:
-        updated_student, updated_detail = data.delete_weight_for_student(
-            payload.registerNumber, payload.assessmentType
-        )
-        return {
-            "status": "success",
-            "message": f"Successfully deleted weightage '{payload.assessmentType}'",
-            "student": updated_student,
-            "detail": updated_detail,
-        }
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    """Weights are centrally configured and read-only."""
+    raise HTTPException(status_code=403, detail="Weights are centrally configured and read-only.")
 
 
 class UpdateFeedbackPayload(BaseModel):
