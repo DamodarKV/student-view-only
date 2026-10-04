@@ -190,16 +190,66 @@ def get_student_performance(s: Dict[str, Any]) -> Optional[float]:
 
 
 
-def classify_student_by_performance(performance_val: Any) -> str:
+def is_student_selected(student: Any) -> bool:
     """
-    Classifies a student as 'Selected' or 'Rejected' based strictly on Performance score:
-    - performance_score >= 50.0 -> 'Selected'
-    - performance_score < 50.0 (or missing/null) -> 'Rejected'
-    The 50% threshold is inclusive.
+    Determines whether a student is 'Selected' or 'Rejected'.
+    Selection rule (ALL THREE conditions are mandatory and strictly greater than):
+        Final Assessment > 6
+        AND Mock Interview > 6
+        AND Aggregate Score > 60
+    Otherwise:
+        REJECTED
+
+    Edge cases:
+    - Missing / null / non-numeric Final Assessment: REJECTED
+    - Missing / null / non-numeric Mock Interview: REJECTED
+    - Missing / null / non-numeric Aggregate Score: REJECTED
+    - Final Assessment = 6: REJECTED (must be > 6, e.g. 6.01)
+    - Mock Interview = 6: REJECTED (must be > 6, e.g. 6.01)
+    - Aggregate Score = 60: REJECTED (must be > 60, e.g. 60.01)
     """
-    perf = parse_performance_score(performance_val)
-    if perf is not None and perf >= 50.0:
-        return "Selected"
+    if not isinstance(student, dict):
+        return False
+
+    final_val = student.get("finalAssessment")
+    mock_val = student.get("mockInterview")
+    agg_val = student.get("aggregateScore")
+    if agg_val is None:
+        agg_val = student.get("average")
+
+    # If keys are missing (e.g. raw MongoDB doc), compute from calculate_student_assessments
+    if final_val is None or mock_val is None or agg_val is None:
+        assessments = calculate_student_assessments(student)
+        ws = assessments.get("weightedScores") or {}
+        if final_val is None:
+            final_val = ws.get("finalAssessment")
+        if mock_val is None:
+            mock_val = ws.get("mockInterview")
+        if agg_val is None:
+            agg_val = assessments.get("aggregateScore")
+
+    if final_val is None or mock_val is None or agg_val is None:
+        return False
+
+    try:
+        f_final = float(final_val)
+        f_mock = float(mock_val)
+        f_agg = float(agg_val)
+    except (ValueError, TypeError):
+        return False
+
+    return (f_final > 6.0) and (f_mock > 6.0) and (f_agg > 60.0)
+
+
+def classify_student_by_performance(student_or_val: Any) -> str:
+    """
+    Classifies a student as 'Selected' or 'Rejected' based strictly on the 3 conditions:
+    1. Final Assessment score > 6
+    2. Mock Interview score > 6
+    3. Aggregate Score > 60
+    """
+    if isinstance(student_or_val, dict):
+        return "Selected" if is_student_selected(student_or_val) else "Rejected"
     return "Rejected"
 
 
@@ -409,9 +459,15 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         has_weights = True
         total_weightage = final_aggregate
 
-        # Performance-based classification:
-        # Performance >= 50 -> Selected, Performance < 50 (or missing/null) -> Rejected
-        norm_student_status = classify_student_by_performance(final_aggregate)
+        # Selection rule:
+        # SELECTED = Final Assessment > 6 AND Mock Interview > 6 AND Aggregate Score > 60
+        # Otherwise: REJECTED
+        student_candidate = {
+            "finalAssessment": weighted_scores["finalAssessment"],
+            "mockInterview": weighted_scores["mockInterview"],
+            "aggregateScore": final_aggregate,
+        }
+        norm_student_status = "Selected" if is_student_selected(student_candidate) else "Rejected"
 
         on_watchlist = bool(
             watchlist_status and str(watchlist_status).strip().lower() in ("watchlist", "true", "yes")
@@ -706,10 +762,10 @@ def select_panel_students(
     track_label: str = "All tracks",
 ) -> List[Dict[str, Any]]:
     """
-    Selects students for the Student panel strictly by their Performance score:
-    - 'selected' -> students whose Performance >= 50
-    - 'rejected' -> students whose Performance < 50
-    The 50% threshold is inclusive. Missing/null performance is not classified as Selected.
+    Selects students for the Student panel strictly by their selection status:
+    - 'selected' -> students satisfying ALL 3 conditions:
+        Final Assessment > 6 AND Mock Interview > 6 AND Aggregate Score > 60
+    - 'rejected' -> all other students
     Students are sorted by score highest to lowest.
     """
     norm_cat = category.strip().lower()
@@ -719,8 +775,8 @@ def select_panel_students(
 
     cat_students = []
     for s in students_list:
-        perf = get_student_performance(s) if s.get("hasWeights", True) else None
-        st = classify_student_by_performance(perf)
+        is_sel = is_student_selected(s)
+        st = "Selected" if is_sel else "Rejected"
         if target_status and st == target_status:
             cat_students.append(s)
 
@@ -733,6 +789,7 @@ def select_panel_students(
         if track_label == "All tracks":
             student_track = "DevOps Track" if (s.get("hasDevops") and (s.get("devopsScore") or 0) > (s.get("aiScore") or 0)) else "AI Track"
         perf = get_student_performance(s) if s.get("hasWeights", True) else None
+        is_sel = is_student_selected(s)
         return {
             "name": s["name"],
             "registerNumber": s["registerNumber"],
@@ -746,7 +803,10 @@ def select_panel_students(
             "mentor": s.get("mentor", ""),
             "lastActive": "today",
             "onWatchlist": s.get("onWatchlist", False),
-            "studentStatus": classify_student_by_performance(perf),
+            "studentStatus": "Selected" if is_sel else "Rejected",
+            "finalAssessment": s.get("finalAssessment"),
+            "mockInterview": s.get("mockInterview"),
+            "aggregateScore": s.get("aggregateScore") if s.get("aggregateScore") is not None else s.get("average"),
         }
 
     # Sort students by Performance percentage in descending order (highest Performance first)

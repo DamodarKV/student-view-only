@@ -1,4 +1,28 @@
 // admin.js — Admin tab: overview page + its three drill-down modals.
+/**
+ * Common student selection function:
+ * A student is marked SELECTED strictly when ALL 3 conditions are satisfied:
+ * 1. Final Assessment score > 6
+ * 2. Mock Interview score > 6
+ * 3. Aggregate Score > 60
+ * (All three conditions strictly >)
+ * Otherwise: REJECTED
+ */
+function isStudentSelected(student) {
+  if (!student || typeof student !== "object") return false;
+  const finalVal = student.finalAssessment !== undefined && student.finalAssessment !== null ? Number(student.finalAssessment) : NaN;
+  const mockVal = student.mockInterview !== undefined && student.mockInterview !== null ? Number(student.mockInterview) : NaN;
+  const aggVal = (student.aggregateScore !== undefined && student.aggregateScore !== null)
+    ? Number(student.aggregateScore)
+    : (student.average !== undefined && student.average !== null ? Number(student.average) : NaN);
+
+  if (Number.isNaN(finalVal) || Number.isNaN(mockVal) || Number.isNaN(aggVal)) {
+    return false;
+  }
+  return finalVal > 6 && mockVal > 6 && aggVal > 60;
+}
+window.isStudentSelected = isStudentSelected;
+
 const STUDENT_PANEL_CATEGORIES = {
   selected: { label: "Selected", color: PALETTE.teal },
   rejected: { label: "Rejected", color: PALETTE.coral },
