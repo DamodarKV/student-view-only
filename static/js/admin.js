@@ -1,25 +1,30 @@
 // admin.js — Admin tab: overview page + its three drill-down modals.
 /**
  * Common student selection function:
- * A student is marked SELECTED strictly when ALL 3 conditions are satisfied:
- * 1. Final Assessment score > 6
- * 2. Mock Interview score > 6
- * 3. Aggregate Score > 60
- * (All three conditions strictly >)
- * Otherwise: REJECTED
+ * A student is marked SELECTED when:
+ *   Aggregate Score >= 50
+ * A student is marked REJECTED when:
+ *   Aggregate Score < 50 (or missing/invalid)
+ * This is the ONLY selection condition.
  */
 function isStudentSelected(student) {
-  if (!student || typeof student !== "object") return false;
-  const finalVal = student.finalAssessment !== undefined && student.finalAssessment !== null ? Number(student.finalAssessment) : NaN;
-  const mockVal = student.mockInterview !== undefined && student.mockInterview !== null ? Number(student.mockInterview) : NaN;
-  const aggVal = (student.aggregateScore !== undefined && student.aggregateScore !== null)
-    ? Number(student.aggregateScore)
-    : (student.average !== undefined && student.average !== null ? Number(student.average) : NaN);
-
-  if (Number.isNaN(finalVal) || Number.isNaN(mockVal) || Number.isNaN(aggVal)) {
-    return false;
+  if (!student) return false;
+  let aggVal = null;
+  if (typeof student === "object") {
+    aggVal = (student.aggregateScore !== undefined && student.aggregateScore !== null && student.aggregateScore !== "")
+      ? student.aggregateScore
+      : (student.AggregateScore !== undefined && student.AggregateScore !== null && student.AggregateScore !== "")
+        ? student.AggregateScore
+        : (student.average !== undefined && student.average !== null && student.average !== "")
+          ? student.average
+          : student.performance;
+  } else {
+    aggVal = student;
   }
-  return finalVal > 6 && mockVal > 6 && aggVal > 60;
+  if (aggVal === null || aggVal === undefined || aggVal === "") return false;
+  const num = Number(String(aggVal).replace(/%$/, "").trim());
+  if (Number.isNaN(num)) return false;
+  return num >= 50;
 }
 window.isStudentSelected = isStudentSelected;
 
@@ -163,8 +168,12 @@ const AdminView = {
     }
 
     const sortedStudents = [...(data.students || [])].sort((a, b) => {
-      const perfA = a.performance !== undefined && a.performance !== null ? Number(a.performance) : (Number(a.totalWeightage) || 0);
-      const perfB = b.performance !== undefined && b.performance !== null ? Number(b.performance) : (Number(b.totalWeightage) || 0);
+      const perfA = (a.aggregateScore !== undefined && a.aggregateScore !== null && a.aggregateScore !== "")
+        ? Number(a.aggregateScore)
+        : (a.performance !== undefined && a.performance !== null ? Number(a.performance) : (Number(a.totalWeightage) || 0));
+      const perfB = (b.aggregateScore !== undefined && b.aggregateScore !== null && b.aggregateScore !== "")
+        ? Number(b.aggregateScore)
+        : (b.performance !== undefined && b.performance !== null ? Number(b.performance) : (Number(b.totalWeightage) || 0));
       return perfB - perfA;
     });
 
@@ -177,7 +186,9 @@ const AdminView = {
       const tdPerf = document.createElement("td");
       tdPerf.className = "mono";
       tdPerf.style.color = (data.meta && data.meta.color) || PALETTE.teal;
-      const perfRaw = s.performance !== undefined && s.performance !== null ? s.performance : s.totalWeightage;
+      const perfRaw = (s.aggregateScore !== undefined && s.aggregateScore !== null && s.aggregateScore !== "")
+        ? s.aggregateScore
+        : (s.performance !== undefined && s.performance !== null ? s.performance : s.totalWeightage);
       if (perfRaw !== undefined && perfRaw !== null && perfRaw !== "") {
         const perfVal = Number(perfRaw) || 0;
         tdPerf.textContent = `${Number.isInteger(perfVal) ? perfVal : perfVal.toFixed(1)}%`;

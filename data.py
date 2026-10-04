@@ -190,67 +190,49 @@ def get_student_performance(s: Dict[str, Any]) -> Optional[float]:
 
 
 
-def is_student_selected(student: Any) -> bool:
+def is_student_selected(student_or_score: Any) -> bool:
     """
     Determines whether a student is 'Selected' or 'Rejected'.
-    Selection rule (ALL THREE conditions are mandatory and strictly greater than):
-        Final Assessment > 6
-        AND Mock Interview > 6
-        AND Aggregate Score > 60
-    Otherwise:
-        REJECTED
-
-    Edge cases:
-    - Missing / null / non-numeric Final Assessment: REJECTED
-    - Missing / null / non-numeric Mock Interview: REJECTED
-    - Missing / null / non-numeric Aggregate Score: REJECTED
-    - Final Assessment = 6: REJECTED (must be > 6, e.g. 6.01)
-    - Mock Interview = 6: REJECTED (must be > 6, e.g. 6.01)
-    - Aggregate Score = 60: REJECTED (must be > 60, e.g. 60.01)
+    Selection rule:
+        Aggregate Score >= 50 -> Selected
+        Aggregate Score < 50 (or missing/null/invalid) -> Rejected
+    This is the ONLY selection condition.
     """
-    if not isinstance(student, dict):
+    if student_or_score is None:
         return False
 
-    final_val = student.get("finalAssessment")
-    mock_val = student.get("mockInterview")
-    agg_val = student.get("aggregateScore")
-    if agg_val is None:
-        agg_val = student.get("average")
-
-    # If keys are missing (e.g. raw MongoDB doc), compute from calculate_student_assessments
-    if final_val is None or mock_val is None or agg_val is None:
-        assessments = calculate_student_assessments(student)
-        ws = assessments.get("weightedScores") or {}
-        if final_val is None:
-            final_val = ws.get("finalAssessment")
-        if mock_val is None:
-            mock_val = ws.get("mockInterview")
+    agg_val = None
+    if isinstance(student_or_score, dict):
+        agg_val = student_or_score.get("aggregateScore")
         if agg_val is None:
+            agg_val = student_or_score.get("average")
+        if agg_val is None:
+            assessments = calculate_student_assessments(student_or_score)
             agg_val = assessments.get("aggregateScore")
+    elif isinstance(student_or_score, (int, float, str)):
+        agg_val = student_or_score
 
-    if final_val is None or mock_val is None or agg_val is None:
+    if agg_val is None or agg_val == "":
         return False
 
     try:
-        f_final = float(final_val)
-        f_mock = float(mock_val)
-        f_agg = float(agg_val)
+        if isinstance(agg_val, str):
+            agg_val = agg_val.strip().rstrip("%").strip()
+            if not agg_val:
+                return False
+        score = float(agg_val)
+        return score >= 50.0
     except (ValueError, TypeError):
         return False
-
-    return (f_final > 6.0) and (f_mock > 6.0) and (f_agg > 60.0)
 
 
 def classify_student_by_performance(student_or_val: Any) -> str:
     """
-    Classifies a student as 'Selected' or 'Rejected' based strictly on the 3 conditions:
-    1. Final Assessment score > 6
-    2. Mock Interview score > 6
-    3. Aggregate Score > 60
+    Classifies a student as 'Selected' or 'Rejected' based strictly on:
+    Aggregate Score >= 50 -> Selected
+    Aggregate Score < 50 (or missing/invalid) -> Rejected
     """
-    if isinstance(student_or_val, dict):
-        return "Selected" if is_student_selected(student_or_val) else "Rejected"
-    return "Rejected"
+    return "Selected" if is_student_selected(student_or_val) else "Rejected"
 
 
 ASSESSMENT_WEIGHTS: List[Dict[str, Any]] = [
@@ -460,14 +442,10 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         total_weightage = final_aggregate
 
         # Selection rule:
-        # SELECTED = Final Assessment > 6 AND Mock Interview > 6 AND Aggregate Score > 60
+        # Selection rule:
+        # SELECTED = Aggregate Score >= 50
         # Otherwise: REJECTED
-        student_candidate = {
-            "finalAssessment": weighted_scores["finalAssessment"],
-            "mockInterview": weighted_scores["mockInterview"],
-            "aggregateScore": final_aggregate,
-        }
-        norm_student_status = "Selected" if is_student_selected(student_candidate) else "Rejected"
+        norm_student_status = "Selected" if is_student_selected(final_aggregate) else "Rejected"
 
         on_watchlist = bool(
             watchlist_status and str(watchlist_status).strip().lower() in ("watchlist", "true", "yes")
@@ -763,10 +741,9 @@ def select_panel_students(
 ) -> List[Dict[str, Any]]:
     """
     Selects students for the Student panel strictly by their selection status:
-    - 'selected' -> students satisfying ALL 3 conditions:
-        Final Assessment > 6 AND Mock Interview > 6 AND Aggregate Score > 60
-    - 'rejected' -> all other students
-    Students are sorted by score highest to lowest.
+    - 'selected' -> students whose Aggregate Score >= 50
+    - 'rejected' -> students whose Aggregate Score < 50
+    Students are sorted by Aggregate Score highest to lowest.
     """
     norm_cat = category.strip().lower()
     target_status = "Selected" if norm_cat in ("selected", "select") else (
@@ -788,8 +765,8 @@ def select_panel_students(
         student_track = track_label
         if track_label == "All tracks":
             student_track = "DevOps Track" if (s.get("hasDevops") and (s.get("devopsScore") or 0) > (s.get("aiScore") or 0)) else "AI Track"
-        perf = get_student_performance(s) if s.get("hasWeights", True) else None
-        is_sel = is_student_selected(s)
+        agg_val = s.get("aggregateScore") if s.get("aggregateScore") is not None else s.get("average")
+        is_sel = is_student_selected(agg_val)
         return {
             "name": s["name"],
             "registerNumber": s["registerNumber"],
@@ -797,8 +774,8 @@ def select_panel_students(
             "score": score_val,
             "scoreDisplay": disp,
             "numericScore": score_val,
-            "performance": perf,
-            "totalWeightage": s.get("totalWeightage", perf),
+            "performance": agg_val,
+            "totalWeightage": agg_val,
             "branch": s.get("branch", ""),
             "mentor": s.get("mentor", ""),
             "lastActive": "today",
@@ -806,12 +783,12 @@ def select_panel_students(
             "studentStatus": "Selected" if is_sel else "Rejected",
             "finalAssessment": s.get("finalAssessment"),
             "mockInterview": s.get("mockInterview"),
-            "aggregateScore": s.get("aggregateScore") if s.get("aggregateScore") is not None else s.get("average"),
+            "aggregateScore": agg_val,
         }
 
-    # Sort students by Performance percentage in descending order (highest Performance first)
+    # Sort students by Aggregate Score in descending order (highest score first)
     def _sort_perf(s: Dict[str, Any]) -> float:
-        p = get_student_performance(s) if s.get("hasWeights", True) else None
+        p = s.get("aggregateScore") if s.get("aggregateScore") is not None else s.get("average")
         return float(p) if p is not None else -1.0
 
     cat_students.sort(
@@ -1621,9 +1598,72 @@ def delete_weight_for_student(register_number: str, assessment_type: str) -> Tup
 def get_student_weights_summary(register_number: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Returns the central assessment weights configuration from MongoDB Atlas,
-    ensuring identical, consistent weights display for every student.
+    synchronized with the student's exact weighted assessment scores from the Student Roster.
     """
-    return get_central_weights_summary()
+    base = get_central_weights_summary()
+    if not register_number:
+        return base
+
+    student = find_roster_student(register_number)
+    if not student:
+        return base
+
+    ai_quiz = student.get("aiQuiz")
+    devops_quiz = student.get("devopsQuiz")
+    assignment = student.get("assignment")
+    final_assessment = student.get("finalAssessment")
+    mock_interview = student.get("mockInterview")
+    agg_score = student.get("aggregateScore") if student.get("aggregateScore") is not None else student.get("average")
+
+    assessment_items = [
+        {
+            "assessmentType": "AI Quiz",
+            "weightage": 25.0,
+            "studentScore": ai_quiz,
+            "studentScoreDisplay": student.get("aiQuizDisplay") or _display_score(ai_quiz),
+        },
+        {
+            "assessmentType": "DevOps Quiz",
+            "weightage": 25.0,
+            "studentScore": devops_quiz,
+            "studentScoreDisplay": student.get("devopsQuizDisplay") or _display_score(devops_quiz),
+        },
+        {
+            "assessmentType": "Assignment",
+            "weightage": 20.0,
+            "studentScore": assignment,
+            "studentScoreDisplay": student.get("assignmentDisplay") or _display_score(assignment),
+        },
+        {
+            "assessmentType": "Final Assessment",
+            "weightage": 15.0,
+            "studentScore": final_assessment,
+            "studentScoreDisplay": student.get("finalAssessmentDisplay") or _display_score(final_assessment),
+        },
+        {
+            "assessmentType": "Mock Interview",
+            "weightage": 15.0,
+            "studentScore": mock_interview,
+            "studentScoreDisplay": student.get("mockInterviewDisplay") or _display_score(mock_interview),
+        },
+    ]
+
+    return {
+        "weights": assessment_items,
+        "totalWeightage": 100.0,
+        "aggregateScore": agg_score,
+        "aggregateScoreDisplay": student.get("aggregateScoreDisplay") or _display_score(agg_score),
+        "student": {
+            "name": student.get("name"),
+            "registerNumber": student.get("registerNumber"),
+            "aiQuiz": ai_quiz,
+            "devopsQuiz": devops_quiz,
+            "assignment": assignment,
+            "finalAssessment": final_assessment,
+            "mockInterview": mock_interview,
+            "aggregateScore": agg_score,
+        },
+    }
 
 
 def update_feedback_for_student(

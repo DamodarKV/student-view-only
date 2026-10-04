@@ -300,7 +300,7 @@ const StudentView = {
       assignments: () => StudentView.openAssignmentsCompletedModal(student, detail),
     });
 
-    StudentView.renderWeightsTable(r.weights, weights);
+    StudentView.renderWeightsTable(r.weights, weights, student, r);
     if (r["add-weight-btn"]) {
       r["add-weight-btn"].remove();
     }
@@ -346,31 +346,81 @@ const StudentView = {
     }
   },
 
-  /** Renders the read-only "Weights" table (assessment type + weightage). */
-  renderWeightsTable(tbody, weights) {
+  /** Renders the read-only "Weights" table (assessment type + weightage + student weighted score). */
+  renderWeightsTable(tbody, weights, student, refs = {}) {
     UI.clear(tbody);
     const list = weights || [];
 
     if (list.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" style="text-align:center; color:var(--text-muted); padding:16px;">No weights available.</td>`;
+      tr.innerHTML = `<td colspan="4" style="text-align:center; color:var(--text-muted); padding:16px;">No weights available.</td>`;
       tbody.appendChild(tr);
       UI.refreshIcons();
       return;
     }
 
+    const formatVal = (val) => {
+      if (val === null || val === undefined || val === "" || val === "—") return "—";
+      const s = String(val).replace(/%$/, "").trim();
+      const num = Number(s);
+      if (!isNaN(num)) {
+        return Number.isInteger(num) ? String(num) : String(parseFloat(num.toFixed(2)));
+      }
+      return s;
+    };
+
+    const getScoreForType = (type, w) => {
+      if (w && w.studentScore !== undefined && w.studentScore !== null) {
+        return formatVal(w.studentScoreDisplay || w.studentScore);
+      }
+      if (!student) return "—";
+      const norm = (type || "").toLowerCase().replace(/[^a-z]/g, "");
+      if (norm.includes("aiquiz") || norm === "ai") return formatVal(student.aiQuizDisplay ?? student.aiQuiz);
+      if (norm.includes("devopsquiz") || norm === "devops") return formatVal(student.devopsQuizDisplay ?? student.devopsQuiz);
+      if (norm.includes("assignment")) return formatVal(student.assignmentDisplay ?? student.assignment);
+      if (norm.includes("final")) return formatVal(student.finalAssessmentDisplay ?? student.finalAssessment);
+      if (norm.includes("mock") || norm.includes("interview")) return formatVal(student.mockInterviewDisplay ?? student.mockInterview);
+      return "—";
+    };
+
     list.forEach((w, idx) => {
       const tr = document.createElement("tr");
       const val = Number(w.weightage);
-      const formatted = Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(2));
+      const formattedWeight = Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(2));
+      const scoreText = getScoreForType(w.assessmentType, w);
+
       tr.innerHTML = `
         <td class="mono muted">${idx + 1}</td>
         <td style="font-weight:500;">${w.assessmentType}</td>
-        <td class="mono" style="text-align:right;">${formatted}%</td>
+        <td class="mono" style="text-align:right;">${formattedWeight}%</td>
+        <td class="mono" style="text-align:right; font-weight:600;">${scoreText}</td>
       `;
 
       tbody.appendChild(tr);
     });
+
+    const aggRaw = student
+      ? (student.aggregateScore ?? student.average)
+      : (weights.aggregateScore ?? null);
+    const aggFormatted = formatVal(aggRaw);
+
+    if (refs && refs["weights-footer"]) {
+      UI.clear(refs["weights-footer"]);
+      const tfootRow = document.createElement("tr");
+      tfootRow.style.borderTop = "2px solid var(--border-color, #2D3748)";
+      tfootRow.style.fontWeight = "600";
+      tfootRow.innerHTML = `
+        <td colspan="2" style="font-weight:600; padding-top:10px;">Aggregate Score</td>
+        <td class="mono muted" style="text-align:right; padding-top:10px;">100%</td>
+        <td class="mono" style="text-align:right; font-weight:700; color:var(--teal, #3FBFA6); padding-top:10px;">${aggFormatted}</td>
+      `;
+      refs["weights-footer"].appendChild(tfootRow);
+    }
+
+    if (refs && refs["weights-aggregate-val"]) {
+      refs["weights-aggregate-val"].textContent = aggFormatted;
+    }
+
     UI.refreshIcons();
   },
 
