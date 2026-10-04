@@ -221,7 +221,7 @@ def is_student_selected(student_or_score: Any) -> bool:
             if not agg_val:
                 return False
         score = float(agg_val)
-        return score >= 50.0
+        return score >= 60.0
     except (ValueError, TypeError):
         return False
 
@@ -229,26 +229,26 @@ def is_student_selected(student_or_score: Any) -> bool:
 def classify_student_by_performance(student_or_val: Any) -> str:
     """
     Classifies a student as 'Selected' or 'Rejected' based strictly on:
-    Aggregate Score >= 50 -> Selected
-    Aggregate Score < 50 (or missing/invalid) -> Rejected
+    Aggregate Score >= 60.0 -> Selected (Model B: 48 students selected)
+    Aggregate Score < 60.0 (or missing/invalid) -> Rejected
     """
     return "Selected" if is_student_selected(student_or_val) else "Rejected"
 
 
 ASSESSMENT_WEIGHTS: List[Dict[str, Any]] = [
-    {"assessmentType": "AI Quiz", "weightage": 25.0},
-    {"assessmentType": "DevOps Quiz", "weightage": 25.0},
-    {"assessmentType": "Assignment", "weightage": 20.0},
-    {"assessmentType": "Final Assessment", "weightage": 15.0},
-    {"assessmentType": "Mock Interview", "weightage": 15.0},
+    {"assessmentType": "Final Assessment", "weightage": 25.0},
+    {"assessmentType": "Mock Interview", "weightage": 25.0},
+    {"assessmentType": "AI Quiz", "weightage": 20.0},
+    {"assessmentType": "DevOps Quiz", "weightage": 15.0},
+    {"assessmentType": "Assignment", "weightage": 15.0},
 ]
 
 ASSESSMENT_WEIGHT_MAP: Dict[str, float] = {
-    "AI Quiz": 25.0,
-    "DevOps Quiz": 25.0,
-    "Assignment": 20.0,
-    "Final Assessment": 15.0,
-    "Mock Interview": 15.0,
+    "Final Assessment": 25.0,
+    "Mock Interview": 25.0,
+    "AI Quiz": 20.0,
+    "DevOps Quiz": 15.0,
+    "Assignment": 15.0,
 }
 
 
@@ -307,53 +307,61 @@ def calculate_student_assessments(s: Dict[str, Any]) -> Dict[str, Any]:
                     except (ValueError, TypeError):
                         pass
 
-    # AI Quiz (weight 25%)
+    # --- MODEL B WEIGHTAGES (Authoritative) ---
+    # Final Assessment: 25%
+    # Mock Interview: 25%
+    # AI Quiz: 20%
+    # DevOps Quiz: 15%
+    # Assignment: 15%
+    # Total: 100%
+
+    # AI Quiz (weight 20%)
     if raw_ai is not None:
-        weighted_ai = round(raw_ai * 0.25, 2)
+        weighted_ai = round(raw_ai * 0.20, 2)
     elif "ai quiz" in w_map:
-        weighted_ai = w_map["ai quiz"]
-        raw_ai = round(weighted_ai / 0.25, 2)
+        raw_ai = round(w_map["ai quiz"] / 0.25, 2)
+        weighted_ai = round(raw_ai * 0.20, 2)
     else:
         weighted_ai = None
 
-    # DevOps Quiz (weight 25%)
+    # DevOps Quiz (weight 15%)
     if raw_devops is not None:
-        weighted_devops = round(raw_devops * 0.25, 2)
+        weighted_devops = round(raw_devops * 0.15, 2)
     elif "devops quiz" in w_map:
-        weighted_devops = w_map["devops quiz"]
-        raw_devops = round(weighted_devops / 0.25, 2)
+        raw_devops = round(w_map["devops quiz"] / 0.25, 2)
+        weighted_devops = round(raw_devops * 0.15, 2)
     else:
         weighted_devops = None
 
-    # Assignment (weight 20%)
+    # Assignment (weight 15%)
     if "assignment" in w_map:
-        weighted_asg = w_map["assignment"]
-        raw_asg = round(weighted_asg / 0.20, 2)
+        raw_asg = round(w_map["assignment"] / 0.20, 2)
+        weighted_asg = round(raw_asg * 0.15, 2)
     elif "Assignment" in s and isinstance(s["Assignment"], (int, float)):
         raw_asg = float(s["Assignment"])
-        weighted_asg = round(raw_asg * 0.20, 2)
+        weighted_asg = round(raw_asg * 0.15, 2)
     else:
         weighted_asg = None
         raw_asg = None
 
-    # Final Assessment (weight 15%)
+    # Final Assessment (weight 25%)
     if "final assessment" in w_map:
-        weighted_final = w_map["final assessment"]
-        raw_final = round(weighted_final / 0.15, 2)
+        raw_final = round(w_map["final assessment"] / 0.15, 2)
+        weighted_final = round(raw_final * 0.25, 2)
     elif "Final Assessment" in s and isinstance(s["Final Assessment"], (int, float)):
         raw_final = float(s["Final Assessment"])
-        weighted_final = round(raw_final * 0.15, 2)
+        weighted_final = round(raw_final * 0.25, 2)
     else:
         weighted_final = None
         raw_final = None
 
-    # Mock Interview (weight 15%)
+    # Mock Interview (weight 25%)
     if "mock interview" in w_map:
-        weighted_mock = w_map["mock interview"]
-        raw_mock = round(weighted_mock / 0.15, 2)
+        raw_mock = round(w_map["mock interview"] / 0.15, 2)
+        weighted_mock = round(raw_mock * 0.25, 2)
     elif "Mock Interview" in s and isinstance(s["Mock Interview"], (int, float)):
         raw_mock = float(s["Mock Interview"])
-        weighted_mock = round(raw_mock * 0.15, 2)
+        weighted_mock = round(raw_mock * 0.25, 2)
     else:
         weighted_mock = None
         raw_mock = None

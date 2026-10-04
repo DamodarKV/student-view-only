@@ -7,3 +7,13 @@ __pycache__/
 *.swo
 .idea/
 .vscode/
+
+# Generated Assessment & Panel Reports
+*.pdf
+*.xlsx
+~$*.xlsx
+temp_*.html
+
+# Report & Attendance Generation Scripts
+generate_*.py
+calculate_attendance.py
