@@ -11,9 +11,11 @@ const StudentView = {
     let currentSort = "avg-desc"; // Default: scores high to low
 
     const sortFn = (a, b) => {
-      if (currentSort === "avg-desc") return (Number(b.average) || 0) - (Number(a.average) || 0);
-      if (currentSort === "avg-asc") return (Number(a.average) || 0) - (Number(b.average) || 0);
-      if (currentSort === "weightage-desc") return (Number(b.totalWeightage) || 0) - (Number(a.totalWeightage) || 0);
+      const scoreA = Number(a.aggregateScore !== undefined && a.aggregateScore !== null ? a.aggregateScore : a.average) || 0;
+      const scoreB = Number(b.aggregateScore !== undefined && b.aggregateScore !== null ? b.aggregateScore : b.average) || 0;
+      if (currentSort === "avg-desc") return scoreB - scoreA;
+      if (currentSort === "avg-asc") return scoreA - scoreB;
+      if (currentSort === "weightage-desc") return scoreB - scoreA;
       if (currentSort === "name-asc") return (a.name || "").localeCompare(b.name || "");
       return 0;
     };
@@ -278,10 +280,10 @@ const StudentView = {
     const totalWeightageDisplay = Number.isInteger(totalWeightage) ? String(totalWeightage) : totalWeightage.toFixed(1);
 
     const stats = [
-      { key: "ai", label: "AI Track score", value: String(student.aiScoreDisplay || (student.aiQuiz !== undefined ? student.aiQuiz : (student.aiScore !== undefined ? student.aiScore : "—"))).replace(/%$/, ""), unit: "", icon: "TrendingUp", fill: student.aiScore || 0, clickable: true, hint: "View & add topic scores" },
-      { key: "devops", label: "DevOps Track score", value: student.hasDevops ? String(student.devopsScoreDisplay || (student.devopsQuiz !== undefined ? student.devopsQuiz : student.devopsScore)).replace(/%$/, "") : "—", unit: "", icon: "TrendingUp", fill: student.hasDevops ? (student.devopsScore || 0) : 0, clickable: Boolean(student.hasDevops), hint: student.hasDevops ? "View & add topic scores" : "" },
-      { key: "avg", label: "Average score", value: String(student.aggregateScore !== undefined && student.aggregateScore !== null ? student.aggregateScore : (student.averageDisplay || (detail.average !== undefined ? detail.average : "—"))).replace(/%$/, ""), unit: "", icon: "CheckCircle2", fill: detail.average || 0 },
-      { key: "weightage", label: "Performance", value: totalWeightageDisplay, unit: "%", icon: "Percent", fill: Math.min(totalWeightage, 100), clickable: true, hint: "View weights breakdown" },
+      { key: "ai", label: "AI Track score", value: String(student.aiScoreDisplay || (student.aiScore !== undefined ? student.aiScore : "—")).replace(/%$/, ""), unit: "", icon: "TrendingUp", fill: student.aiScore || 0, clickable: true, hint: "View & add topic scores" },
+      { key: "devops", label: "DevOps Track score", value: student.hasDevops ? String(student.devopsScoreDisplay || student.devopsScore).replace(/%$/, "") : "—", unit: "", icon: "TrendingUp", fill: student.hasDevops ? (student.devopsScore || 0) : 0, clickable: Boolean(student.hasDevops), hint: student.hasDevops ? "View & add topic scores" : "" },
+      { key: "avg", label: "Aggregate score", value: String(student.aggregateScore !== undefined && student.aggregateScore !== null ? student.aggregateScore : (student.averageDisplay || (detail.average !== undefined ? detail.average : "—"))).replace(/%$/, ""), unit: "", icon: "CheckCircle2", fill: student.aggregateScore || detail.average || 0 },
+      { key: "weightage", label: "Performance", value: String(student.aggregateScore !== undefined && student.aggregateScore !== null ? student.aggregateScore : totalWeightageDisplay).replace(/%$/, ""), unit: "%", icon: "Percent", fill: Math.min(student.aggregateScore || totalWeightage, 100), clickable: true, hint: "View weights breakdown" },
       { key: "assignments", label: "Assignments completed", value: String(detail.assignmentsDone), unit: `of ${detail.totalAssignments}`, icon: "ClipboardCheck", clickable: true, hint: "View completed assignments" },
     ];
     UI.renderStatGrid(r.stats, stats, {

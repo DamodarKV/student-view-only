@@ -162,9 +162,14 @@ def parse_performance_score(val: Any) -> Optional[float]:
 
 def get_student_performance(s: Dict[str, Any]) -> Optional[float]:
     """
-    Extracts the numeric Performance score (total weightage) for a student.
-    Handles numeric totalWeightage, string percentage, or raw weights list.
+    Extracts the numeric Performance score (assessment aggregate score) for a student.
+    Handles numeric aggregateScore, totalWeightage, string percentage, or raw weights list.
     """
+    if "aggregateScore" in s and s["aggregateScore"] is not None:
+        parsed = parse_performance_score(s["aggregateScore"])
+        if parsed is not None:
+            return parsed
+
     if "totalWeightage" in s and s["totalWeightage"] is not None:
         parsed = parse_performance_score(s["totalWeightage"])
         if parsed is not None:
@@ -184,6 +189,7 @@ def get_student_performance(s: Dict[str, Any]) -> Optional[float]:
     return None
 
 
+
 def classify_student_by_performance(performance_val: Any) -> str:
     """
     Classifies a student as 'Selected' or 'Rejected' based strictly on Performance score:
@@ -197,57 +203,168 @@ def classify_student_by_performance(performance_val: Any) -> str:
     return "Rejected"
 
 
-def _extract_assessment_score(s: Dict[str, Any], assessment_name: str) -> Optional[float]:
-    """
-    Safely extracts an assessment score from the MongoDB student record.
-    Matches the assessment configuration used by the Weights section:
-    - AI Quiz
-    - DevOps Quiz
-    - Assignment
-    - Final Assessment
-    - Mock Interview
-    Prioritizes the exact AssessmentType from the student's Weightage list in MongoDB Atlas.
-    """
-    key_clean = assessment_name.strip().lower()
+ASSESSMENT_WEIGHTS: List[Dict[str, Any]] = [
+    {"assessmentType": "AI Quiz", "weightage": 25.0},
+    {"assessmentType": "DevOps Quiz", "weightage": 25.0},
+    {"assessmentType": "Assignment", "weightage": 20.0},
+    {"assessmentType": "Final Assessment", "weightage": 15.0},
+    {"assessmentType": "Mock Interview", "weightage": 15.0},
+]
 
-    # 1. Check Weightage list in MongoDB Atlas (exact assessment marks)
+ASSESSMENT_WEIGHT_MAP: Dict[str, float] = {
+    "AI Quiz": 25.0,
+    "DevOps Quiz": 25.0,
+    "Assignment": 20.0,
+    "Final Assessment": 15.0,
+    "Mock Interview": 15.0,
+}
+
+
+def calculate_weighted_assessment_score(raw_score: Optional[float], assessment_type: str) -> Optional[float]:
+    """Calculates weighted contribution = (raw_score * weight) / 100."""
+    if raw_score is None:
+        return None
+    weight = ASSESSMENT_WEIGHT_MAP.get(assessment_type, 0.0)
+    return round((raw_score * weight) / 100.0, 2)
+
+
+def calculate_aggregate_score(weighted_scores: Dict[str, Optional[float]]) -> Optional[float]:
+    """Calculates Aggregate Score = sum of the 5 weighted contributions (between 0 and 100)."""
+    valid_scores = [v for v in weighted_scores.values() if v is not None]
+    if not valid_scores:
+        return None
+    agg = round(sum(valid_scores), 2)
+    return clamp(agg, 0.0, 100.0)
+
+
+def calculate_student_assessments(s: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extracts raw scores and computes the authoritative weighted assessment contributions
+    and Aggregate Score for a student record.
+    Authoritative weights:
+    - AI Quiz: 25% (raw score from AverageScore.AI / Scores.AI)
+    - DevOps Quiz: 25% (raw score from AverageScore.DevOps / Scores.DevOps)
+    - Assignment: 20% (weighted contribution stored in Weightage or derived from raw score)
+    - Final Assessment: 15% (weighted contribution stored in Weightage or derived from raw score)
+    - Mock Interview: 15% (weighted contribution stored in Weightage or derived from raw score)
+    """
+    avg_dict = s.get("AverageScore") or {}
+    ai_avg = avg_dict.get("AI")
+    dev_avg = avg_dict.get("DevOps")
+
+    raw_ai = _format_score(ai_avg) if ai_avg is not None and ai_avg != "" else None
+    has_devops = dev_avg is not None and dev_avg != ""
+    raw_devops = _format_score(dev_avg) if has_devops else None
+
+    # MongoDB Weightage lookup for already-weighted assessment scores
     raw_weights = s.get("Weightage")
     if raw_weights is None and "raw" in s and isinstance(s["raw"], dict):
         raw_weights = s["raw"].get("Weightage")
     if raw_weights is None and "weights" in s:
         raw_weights = s.get("weights")
 
+    w_map: Dict[str, float] = {}
     if isinstance(raw_weights, list):
         for w in raw_weights:
             if isinstance(w, dict):
                 a_type = (w.get("AssessmentType") or w.get("assessmentType") or "").strip().lower()
-                if a_type == key_clean:
-                    w_val = w.get("Weightage") if "Weightage" in w else w.get("weightage")
-                    if w_val is not None and str(w_val).strip() != "":
-                        try:
-                            return _format_score(w_val)
-                        except (ValueError, TypeError):
-                            pass
-
-    # 2. Check direct top-level field if numeric or numeric string
-    val = s.get(assessment_name)
-    if val is not None and not isinstance(val, (list, dict)) and str(val).strip() != "":
-        try:
-            return _format_score(val)
-        except (ValueError, TypeError):
-            pass
-
-    # 3. Check Scores dictionary
-    scores_dict = s.get("Scores") or {}
-    if isinstance(scores_dict, dict):
-        for k, v in scores_dict.items():
-            if k.strip().lower() == key_clean and v is not None:
-                if isinstance(v, (int, float, str)) and str(v).strip() != "":
+                w_val = w.get("Weightage") if "Weightage" in w else w.get("weightage")
+                if a_type and w_val is not None and str(w_val).strip() != "":
                     try:
-                        return _format_score(v)
+                        w_map[a_type] = _format_score(w_val)
                     except (ValueError, TypeError):
                         pass
 
+    # AI Quiz (weight 25%)
+    if raw_ai is not None:
+        weighted_ai = round(raw_ai * 0.25, 2)
+    elif "ai quiz" in w_map:
+        weighted_ai = w_map["ai quiz"]
+        raw_ai = round(weighted_ai / 0.25, 2)
+    else:
+        weighted_ai = None
+
+    # DevOps Quiz (weight 25%)
+    if raw_devops is not None:
+        weighted_devops = round(raw_devops * 0.25, 2)
+    elif "devops quiz" in w_map:
+        weighted_devops = w_map["devops quiz"]
+        raw_devops = round(weighted_devops / 0.25, 2)
+    else:
+        weighted_devops = None
+
+    # Assignment (weight 20%)
+    if "assignment" in w_map:
+        weighted_asg = w_map["assignment"]
+        raw_asg = round(weighted_asg / 0.20, 2)
+    elif "Assignment" in s and isinstance(s["Assignment"], (int, float)):
+        raw_asg = float(s["Assignment"])
+        weighted_asg = round(raw_asg * 0.20, 2)
+    else:
+        weighted_asg = None
+        raw_asg = None
+
+    # Final Assessment (weight 15%)
+    if "final assessment" in w_map:
+        weighted_final = w_map["final assessment"]
+        raw_final = round(weighted_final / 0.15, 2)
+    elif "Final Assessment" in s and isinstance(s["Final Assessment"], (int, float)):
+        raw_final = float(s["Final Assessment"])
+        weighted_final = round(raw_final * 0.15, 2)
+    else:
+        weighted_final = None
+        raw_final = None
+
+    # Mock Interview (weight 15%)
+    if "mock interview" in w_map:
+        weighted_mock = w_map["mock interview"]
+        raw_mock = round(weighted_mock / 0.15, 2)
+    elif "Mock Interview" in s and isinstance(s["Mock Interview"], (int, float)):
+        raw_mock = float(s["Mock Interview"])
+        weighted_mock = round(raw_mock * 0.15, 2)
+    else:
+        weighted_mock = None
+        raw_mock = None
+
+    raw_scores = {
+        "aiQuiz": raw_ai,
+        "devopsQuiz": raw_devops,
+        "assignment": raw_asg,
+        "finalAssessment": raw_final,
+        "mockInterview": raw_mock,
+    }
+
+    weighted_scores = {
+        "aiQuiz": weighted_ai,
+        "devopsQuiz": weighted_devops,
+        "assignment": weighted_asg,
+        "finalAssessment": weighted_final,
+        "mockInterview": weighted_mock,
+    }
+
+    agg_score = calculate_aggregate_score(weighted_scores)
+
+    return {
+        "rawScores": raw_scores,
+        "weightedScores": weighted_scores,
+        "aggregateScore": agg_score,
+    }
+
+
+def _extract_assessment_score(s: Dict[str, Any], assessment_name: str) -> Optional[float]:
+    """Backward compatibility helper for single assessment weighted score extraction."""
+    assessments = calculate_student_assessments(s)
+    key_clean = assessment_name.strip().lower()
+    mapping = {
+        "ai quiz": "aiQuiz",
+        "devops quiz": "devopsQuiz",
+        "assignment": "assignment",
+        "final assessment": "finalAssessment",
+        "mock interview": "mockInterview",
+    }
+    field = mapping.get(key_clean)
+    if field:
+        return assessments["weightedScores"].get(field)
     return None
 
 
@@ -270,74 +387,73 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         devops_score = _format_score(devops_raw) if has_devops else None
 
         if agg_raw is not None and agg_raw != "":
-            aggregate = _format_score(agg_raw)
+            topic_aggregate = _format_score(agg_raw)
         else:
-            aggregate = round((ai_score + devops_score) / 2, 2) if has_devops else ai_score
+            topic_aggregate = round((ai_score + devops_score) / 2, 2) if has_devops else ai_score
 
-        # Corresponding assessment marks from MongoDB Atlas data (matching Weights configuration):
-        # AI Quiz, DevOps Quiz, Assignment, Final Assessment, Mock Interview
-        ai_quiz_mark = _extract_assessment_score(s, "AI Quiz")
-        devops_quiz_mark = _extract_assessment_score(s, "DevOps Quiz")
-        assignment_mark = _extract_assessment_score(s, "Assignment")
-        final_assessment_mark = _extract_assessment_score(s, "Final Assessment")
-        mock_interview_mark = _extract_assessment_score(s, "Mock Interview")
+        # Authoritative assessment calculation:
+        # AI Quiz (25%), DevOps Quiz (25%), Assignment (20%), Final Assessment (15%), Mock Interview (15%)
+        # Aggregate Score = AI + DevOps + Assignment + Final Assessment + Mock Interview
+        assessments = calculate_student_assessments(s)
+        raw_scores = assessments["rawScores"]
+        weighted_scores = assessments["weightedScores"]
+        agg_score = assessments["aggregateScore"]
+
+        # Aggregate Score is the sum of the five weighted contributions
+        final_aggregate = agg_score if agg_score is not None else topic_aggregate
 
         mentor = MENTOR_NAMES[idx % len(MENTOR_NAMES)]
-        status = status_for_score(aggregate)
+        status = status_for_score(final_aggregate)
 
         watchlist_status = s.get("WatchListStatus", "")
-        weights_list = _normalize_weights(s.get("Weightage"))
-        has_weights = bool(weights_list)
-        total_weightage = round(sum(w["weightage"] for w in weights_list), 2) if has_weights else None
+        has_weights = True
+        total_weightage = final_aggregate
 
         # Performance-based classification:
         # Performance >= 50 -> Selected, Performance < 50 (or missing/null) -> Rejected
-        norm_student_status = classify_student_by_performance(total_weightage)
+        norm_student_status = classify_student_by_performance(final_aggregate)
 
         on_watchlist = bool(
             watchlist_status and str(watchlist_status).strip().lower() in ("watchlist", "true", "yes")
         )
-        '''
-        _cleaned_scores = s.get("Scores", {})
-        del_list = ["Amazon Backend","Tokeniser Algorithm","RAG"]
-        for l in del_list:
-            del _cleaned_scores["AI"][l]
-        s["Scores"] = _cleaned_scores
-        '''
 
         roster.append({
             "registerNumber": reg,
             "name": name,
+            "student": name,
             "email": email,
             "mobile": mobile,
             "branch": branch,
+            # System 1: AI / DevOps topic scores
             "aiScore": ai_score,
             "devopsScore": devops_score if devops_score is not None else 0,
             "hasDevops": has_devops,
-            "average": aggregate,
+            "average": topic_aggregate,
             "aiScoreDisplay": _display_score(ai_raw),
             "devopsScoreDisplay": _display_score(devops_raw),
-            "averageDisplay": _display_score(aggregate),
-            # Assessment columns: AI Quiz, DevOps Quiz, Assignment, Final Assessment, Mock Interview, Aggregate Score
-            "aiQuiz": ai_quiz_mark,
-            "devopsQuiz": devops_quiz_mark,
-            "assignment": assignment_mark,
-            "finalAssessment": final_assessment_mark,
-            "mockInterview": mock_interview_mark,
-            "aggregateScore": aggregate,
-            "aiQuizDisplay": _display_score(ai_quiz_mark),
-            "devopsQuizDisplay": _display_score(devops_quiz_mark),
-            "assignmentDisplay": _display_score(assignment_mark),
-            "finalAssessmentDisplay": _display_score(final_assessment_mark),
-            "mockInterviewDisplay": _display_score(mock_interview_mark),
-            "aggregateScoreDisplay": _display_score(aggregate),
+            "averageDisplay": _display_score(topic_aggregate),
+            # System 2: Assessment scoring & weighted contributions
+            "rawScores": raw_scores,
+            "weightedScores": weighted_scores,
+            "aiQuiz": weighted_scores["aiQuiz"],
+            "devopsQuiz": weighted_scores["devopsQuiz"],
+            "assignment": weighted_scores["assignment"],
+            "finalAssessment": weighted_scores["finalAssessment"],
+            "mockInterview": weighted_scores["mockInterview"],
+            "aggregateScore": final_aggregate,
+            "aiQuizDisplay": _display_score(weighted_scores["aiQuiz"]),
+            "devopsQuizDisplay": _display_score(weighted_scores["devopsQuiz"]),
+            "assignmentDisplay": _display_score(weighted_scores["assignment"]),
+            "finalAssessmentDisplay": _display_score(weighted_scores["finalAssessment"]),
+            "mockInterviewDisplay": _display_score(weighted_scores["mockInterview"]),
+            "aggregateScoreDisplay": _display_score(final_aggregate),
             "mentor": mentor,
             "status": status,
             "studentStatus": norm_student_status,
             "statusColor": CATEGORY_META[status]["color"],
             "scores": s.get("Scores", {}),
             "weights": s.get("Weightage", []) if isinstance(s.get("Weightage", []), list) else [],
-            "totalWeightage": total_weightage if total_weightage is not None else 0,
+            "totalWeightage": total_weightage,
             "hasWeights": has_weights,
             "performance": total_weightage,
             "mentorFeedback": s.get("MentorFeedback") if isinstance(s.get("MentorFeedback"), dict) else None,
@@ -349,9 +465,10 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
             "raw": s,
         })
 
-    # Sort students from highest score to lowest score (high to low)
-    roster.sort(key=lambda s: (s.get("average") if s.get("average") is not None else -1), reverse=True)
+    # Sort students by Aggregate Score from highest to lowest
+    roster.sort(key=lambda s: (s.get("aggregateScore") if s.get("aggregateScore") is not None else (s.get("average") if s.get("average") is not None else -1)), reverse=True)
     return roster
+
 
 
 
@@ -508,12 +625,16 @@ def select_category_students(
     cat_students = []
     for s in students_list:
         val = s.get(score_key)
+        if val is None and score_key == "aggregateScore":
+            val = s.get("average")
         score_val = float(val) if val is not None and val != "" else 0.0
         if status_for_score(score_val) == category:
             cat_students.append(s)
 
     def _format(s: Dict[str, Any]) -> Dict[str, Any]:
         val = s.get(score_key)
+        if val is None and score_key == "aggregateScore":
+            val = s.get("average")
         score_val = float(val) if val is not None and val != "" else 0.0
         disp_key = f"{score_key}Display" if score_key != "average" else "averageDisplay"
         disp = s.get(disp_key) or _display_score(score_val)
@@ -1045,53 +1166,23 @@ def admin_student_to_roster_shape(student: Dict[str, Any]) -> Dict[str, Any]:
 
 def get_central_weights_summary() -> Dict[str, Any]:
     """
-    Returns the centralized assessment weights configuration stored in MongoDB Atlas:
-    1. AI Quiz (22.96)
-    2. DevOps Quiz (25.0)
-    3. Assignment (1.14)
-    4. Final Assessment (11.0)
-    5. Mock Interview (7.0)
-    and the total weightage sum.
+    Returns the centralized assessment weights configuration:
+    1. AI Quiz (25%)
+    2. DevOps Quiz (25%)
+    3. Assignment (20%)
+    4. Final Assessment (15%)
+    5. Mock Interview (15%)
+    Total = 100%
     """
-    raw = None
-    if hasattr(db, "fetch_central_assessment_weights"):
-        raw = db.fetch_central_assessment_weights()
-
-    if not raw:
-        for s in RAW_STUDENTS:
-            w_list = s.get("Weightage") or s.get("weights")
-            if isinstance(w_list, list) and any(
-                isinstance(w, dict) and w.get("AssessmentType") == "Final Assessment" and float(w.get("Weightage", 0)) == 11.0
-                for w in w_list
-            ):
-                raw = w_list
-                break
-
-    if not raw:
-        for s in RAW_STUDENTS:
-            if s.get("registerNumber") == "DDAIISE13" or s.get("RegNumber") == "DDAIISE13":
-                raw = s.get("Weightage") or s.get("weights")
-                break
-
-    weights = _normalize_weights(raw or [])
-    order = ["AI Quiz", "DevOps Quiz", "Assignment", "Final Assessment", "Mock Interview"]
-    ordered_weights = []
-    seen = set()
-    for o in order:
-        found = next((w for w in weights if w.get("assessmentType", "").strip().lower() == o.lower()), None)
-        if found:
-            ordered_weights.append(found)
-            seen.add(found["assessmentType"].strip().lower())
-    for w in weights:
-        if w.get("assessmentType", "").strip().lower() not in seen:
-            ordered_weights.append(w)
-
-    total = round(sum(w["weightage"] for w in ordered_weights), 2)
-    return {"weights": ordered_weights, "totalWeightage": total}
+    return {
+        "weights": ASSESSMENT_WEIGHTS,
+        "totalWeightage": 100.0,
+        "weightMap": ASSESSMENT_WEIGHT_MAP,
+    }
 
 
 def build_roster_student_detail(student: Dict[str, Any]) -> Dict[str, Any]:
-    average = student.get("average", 70.0)
+    average = student.get("aggregateScore") if student.get("aggregateScore") is not None else student.get("average", 70.0)
 
     ai_modules, devops_modules = _extract_student_modules(student)
     all_modules = ai_modules + devops_modules
@@ -1157,6 +1248,10 @@ def build_roster_student_detail(student: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "status": status,
         "average": average,
+        "aggregateScore": student.get("aggregateScore", average),
+        "aggregateScoreDisplay": student.get("aggregateScoreDisplay", _display_score(average)),
+        "rawScores": student.get("rawScores", {}),
+        "weightedScores": student.get("weightedScores", {}),
         "onWatchlist": student.get("onWatchlist", False),
         "aiModules": ai_modules,
         "devopsModules": devops_modules,
@@ -1546,7 +1641,7 @@ def _build_all_tracks_data() -> Dict[str, Any]:
     devops = RAW_DATA["DevOps Track"]
 
     # All tracks warnings are based on Aggregate scores
-    agg_scores = [s["average"] for s in STUDENT_ROSTER]
+    agg_scores = [s.get("aggregateScore", s.get("average", 0)) for s in STUDENT_ROSTER]
     crit_count = sum(1 for s in agg_scores if s < 50)
     mod_count = sum(1 for s in agg_scores if 50 <= s < 75)
     ontrack_count = sum(1 for s in agg_scores if s >= 75)
@@ -1564,8 +1659,8 @@ def _build_all_tracks_data() -> Dict[str, Any]:
 
     agg_avg = round(sum(agg_scores) / len(agg_scores)) if agg_scores else 60
 
-    all_selected = select_panel_students(STUDENT_ROSTER, "selected", "average", "All tracks")
-    all_rejected = select_panel_students(STUDENT_ROSTER, "rejected", "average", "All tracks")
+    all_selected = select_panel_students(STUDENT_ROSTER, "selected", "aggregateScore", "All tracks")
+    all_rejected = select_panel_students(STUDENT_ROSTER, "rejected", "aggregateScore", "All tracks")
 
     return {
         "strength": len(STUDENT_ROSTER),
@@ -1583,9 +1678,9 @@ def _build_all_tracks_data() -> Dict[str, Any]:
         "panelCounts": {"selected": len(all_selected), "rejected": len(all_rejected)},
         "panelStudents": {"selected": all_selected, "rejected": all_rejected},
         "students": {
-            "critical": select_category_students(STUDENT_ROSTER, "critical", "average", "All tracks"),
-            "moderate": select_category_students(STUDENT_ROSTER, "moderate", "average", "All tracks"),
-            "onTrack": select_category_students(STUDENT_ROSTER, "onTrack", "average", "All tracks"),
+            "critical": select_category_students(STUDENT_ROSTER, "critical", "aggregateScore", "All tracks"),
+            "moderate": select_category_students(STUDENT_ROSTER, "moderate", "aggregateScore", "All tracks"),
+            "onTrack": select_category_students(STUDENT_ROSTER, "onTrack", "aggregateScore", "All tracks"),
             "selected": all_selected,
             "rejected": all_rejected,
         },

@@ -756,26 +756,16 @@ def save_assignments_to_mongo(assignments_list: List[Dict[str, Any]]) -> bool:
 
 def fetch_central_assessment_weights() -> Optional[List[Dict[str, Any]]]:
     """
-    Fetches the central assessment weights configuration from MongoDB Atlas.
-    Reuses the existing student collection document that contains the full
-    assessment weightage configuration (AI Quiz, DevOps Quiz, Assignment,
-    Final Assessment, Mock Interview).
+    Fetches the central assessment weights configuration.
+    Returns the authoritative assessment weights:
+    AI Quiz = 25%, DevOps Quiz = 25%, Assignment = 20%,
+    Final Assessment = 15%, Mock Interview = 15%. Total = 100%.
     """
-    try:
-        client = get_mongo_client()
-        coll = client[DB_NAME][COLLECTION_NAME]
-        doc = coll.find_one(
-            {"Weightage.AssessmentType": "Final Assessment", "Weightage.Weightage": 11.0},
-            {"_id": 0, "Weightage": 1},
-        )
-        if not doc:
-            doc = coll.find_one(
-                {"RegNumber": "DDAIISE13"},
-                {"_id": 0, "Weightage": 1},
-            )
-        client.close()
-        if doc and isinstance(doc.get("Weightage"), list):
-            return doc["Weightage"]
-    except Exception as exc:
-        print(f"[Database] Notice: Could not fetch central weights ({exc.__class__.__name__}).")
-    return None
+    return [
+        {"AssessmentType": "AI Quiz", "Weightage": 25.0},
+        {"AssessmentType": "DevOps Quiz", "Weightage": 25.0},
+        {"AssessmentType": "Assignment", "Weightage": 20.0},
+        {"AssessmentType": "Final Assessment", "Weightage": 15.0},
+        {"AssessmentType": "Mock Interview", "Weightage": 15.0},
+    ]
+
