@@ -230,7 +230,7 @@ def is_student_selected(student_or_score: Any) -> bool:
                     mock_score = raw_scores.get("mockInterview")
         if mock_score is not None:
             try:
-                if float(mock_score) <= 0.0:
+                if float(mock_score) <= 3.33:
                     return False
             except (ValueError, TypeError):
                 return False
@@ -242,8 +242,8 @@ def is_student_selected(student_or_score: Any) -> bool:
 def classify_student_by_performance(student_or_val: Any) -> str:
     """
     Classifies a student as 'Selected' or 'Rejected' based strictly on:
-    Aggregate Score >= 50.0 and Mock Interview > 0 -> Selected (Model B: 55 students selected)
-    Aggregate Score < 50.0 or Mock Interview <= 0 -> Rejected
+    Aggregate Score >= 50.0 and Mock Interview > 3.33 -> Selected (Model B: 54 students selected)
+    Aggregate Score < 50.0 or Mock Interview <= 3.33 -> Rejected
     """
     return "Selected" if is_student_selected(student_or_val) else "Rejected"
 
