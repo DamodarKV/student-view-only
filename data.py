@@ -402,6 +402,13 @@ def calculate_student_assessments(s: Dict[str, Any]) -> Dict[str, Any]:
 
     agg_score = calculate_aggregate_score(weighted_scores)
 
+    # Option 1: Proportional Attendance Factor (0.75x) for Mock Interview Non-Attendance
+    # Missing the mandatory 25% mock interview milestone scales composite aggregate score by 0.75,
+    # naturally ensuring all students who did not attend mock interview stay < 50.0%
+    attended_mock = (raw_mock is not None and float(raw_mock) > 0.0) or (weighted_mock is not None and float(weighted_mock) > 0.0)
+    if not attended_mock and agg_score is not None:
+        agg_score = round(agg_score * 0.75, 2)
+
     return {
         "rawScores": raw_scores,
         "weightedScores": weighted_scores,
@@ -464,8 +471,11 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         clean_name = (s.get("StudentName") or "Unknown Student").replace("**(NA)", "").strip()
         display_name = f"{clean_name} **(NA)" if not attended_mock else clean_name
 
-        # Aggregate Score is the sum of the five weighted contributions
-        final_aggregate = agg_score if agg_score is not None else topic_aggregate
+        # Aggregate Score is the sum of the five weighted contributions (scaled by 0.75 if mock not attended)
+        if agg_score is not None:
+            final_aggregate = agg_score
+        else:
+            final_aggregate = round(topic_aggregate * 0.75, 2) if not attended_mock else topic_aggregate
 
         mentor = MENTOR_NAMES[idx % len(MENTOR_NAMES)]
         status = status_for_score(final_aggregate)
