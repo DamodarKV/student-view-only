@@ -158,7 +158,12 @@ const UI = {
   linkCell(label, onClick) {
     const frag = UI.clone("tpl-student-name-cell");
     const r = UI.refs(frag);
-    r.btn.textContent = label;
+    if (label && label.includes("**(NA)")) {
+      const base = label.replace("**(NA)", "").trim();
+      r.btn.innerHTML = `${base} <span style="color:#ef4444; font-weight:700; font-size:11px; margin-left:4px;">**(NA)</span>`;
+    } else {
+      r.btn.textContent = label;
+    }
     r.btn.addEventListener("click", onClick);
     return frag;
   },

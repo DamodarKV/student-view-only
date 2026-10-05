@@ -457,6 +457,13 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         weighted_scores = assessments["weightedScores"]
         agg_score = assessments["aggregateScore"]
 
+        # Tag students who did not attend mock interview with **(NA)
+        mock_val = weighted_scores.get("mockInterview")
+        raw_mock = raw_scores.get("mockInterview")
+        attended_mock = (mock_val is not None and float(mock_val) > 0.0) or (raw_mock is not None and float(raw_mock) > 0.0)
+        clean_name = (s.get("StudentName") or "Unknown Student").replace("**(NA)", "").strip()
+        display_name = f"{clean_name} **(NA)" if not attended_mock else clean_name
+
         # Aggregate Score is the sum of the five weighted contributions
         final_aggregate = agg_score if agg_score is not None else topic_aggregate
 
@@ -468,7 +475,7 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         total_weightage = final_aggregate
 
         # Selection rule:
-        # SELECTED = Aggregate Score >= 50.0 AND Mock Interview > 0
+        # SELECTED = Aggregate Score >= 50.0 AND Mock Interview > 3.33
         # Otherwise: REJECTED
         eval_candidate = {
             "aggregateScore": final_aggregate,
@@ -483,8 +490,10 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
 
         roster.append({
             "registerNumber": reg,
-            "name": name,
-            "student": name,
+            "name": display_name,
+            "rawName": clean_name,
+            "student": display_name,
+            "attendedMock": attended_mock,
             "email": email,
             "mobile": mobile,
             "branch": branch,
