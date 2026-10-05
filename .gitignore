@@ -8,12 +8,19 @@ __pycache__/
 .idea/
 .vscode/
 
-# Generated Assessment & Panel Reports
+# Generated Assessment & Panel Reports / PDFs / Excels
 *.pdf
 *.xlsx
+*.xls
+*.csv
 ~$*.xlsx
 temp_*.html
+*.html.tmp
+reports/
 
 # Report & Attendance Generation Scripts
 generate_*.py
 calculate_attendance.py
+*_report.py
+*_reports.py
+
