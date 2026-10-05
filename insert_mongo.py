@@ -244,7 +244,7 @@ def ensure_default_student_statuses(docs: List[Dict[str, Any]]) -> None:
                             total_w += float(w.get("Weightage", 0))
                         except (TypeError, ValueError):
                             pass
-            status = "Selected" if total_w >= 50.0 else "Rejected"
+            status = "Selected" if total_w > 60.0 else "Rejected"
             doc["TrackStatus"] = status
             reg = doc.get("RegNumber")
             if reg:

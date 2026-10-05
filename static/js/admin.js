@@ -2,9 +2,9 @@
 /**
  * Common student selection function:
  * A student is marked SELECTED when:
- *   Aggregate Score >= 50
+ *   Aggregate Score > 60
  * A student is marked REJECTED when:
- *   Aggregate Score < 50 (or missing/invalid)
+ *   Aggregate Score <= 60 (or missing/invalid)
  * This is the ONLY selection condition.
  */
 function isStudentSelected(student) {
@@ -24,7 +24,7 @@ function isStudentSelected(student) {
   if (aggVal === null || aggVal === undefined || aggVal === "") return false;
   const num = Number(String(aggVal).replace(/%$/, "").trim());
   if (Number.isNaN(num)) return false;
-  return num >= 50;
+  return num > 60;
 }
 window.isStudentSelected = isStudentSelected;
 

@@ -194,8 +194,8 @@ def is_student_selected(student_or_score: Any) -> bool:
     """
     Determines whether a student is 'Selected' or 'Rejected'.
     Selection rule:
-        Aggregate Score >= 50 -> Selected
-        Aggregate Score < 50 (or missing/null/invalid) -> Rejected
+        Aggregate Score > 60 -> Selected
+        Aggregate Score <= 60 (or missing/null/invalid) -> Rejected
     This is the ONLY selection condition.
     """
     if student_or_score is None:
@@ -234,7 +234,7 @@ def is_student_selected(student_or_score: Any) -> bool:
                     return False
             except (ValueError, TypeError):
                 return False
-        return score >= 50.0
+        return score > 60.0
     except (ValueError, TypeError):
         return False
 
@@ -242,8 +242,8 @@ def is_student_selected(student_or_score: Any) -> bool:
 def classify_student_by_performance(student_or_val: Any) -> str:
     """
     Classifies a student as 'Selected' or 'Rejected' based strictly on:
-    Aggregate Score >= 50.0 and Mock Interview > 3.33 -> Selected (Model B: 54 students selected)
-    Aggregate Score < 50.0 or Mock Interview <= 3.33 -> Rejected
+    Aggregate Score > 60.0 and Mock Interview > 3.33 -> Selected (47 students selected)
+    Aggregate Score <= 60.0 or Mock Interview <= 3.33 -> Rejected
     """
     return "Selected" if is_student_selected(student_or_val) else "Rejected"
 
@@ -485,7 +485,7 @@ def _build_student_roster(raw_list: List[Dict[str, Any]]) -> List[Dict[str, Any]
         total_weightage = final_aggregate
 
         # Selection rule:
-        # SELECTED = Aggregate Score >= 50.0 AND Mock Interview > 3.33
+        # SELECTED = Aggregate Score > 60.0 AND Mock Interview > 3.33
         # Otherwise: REJECTED
         eval_candidate = {
             "aggregateScore": final_aggregate,
