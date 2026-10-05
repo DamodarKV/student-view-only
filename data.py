@@ -348,8 +348,13 @@ def calculate_student_assessments(s: Dict[str, Any]) -> Dict[str, Any]:
 
     # Assignment (weight 15%)
     if "assignment" in w_map:
-        raw_asg = round(w_map["assignment"] / 0.20, 2)
-        weighted_asg = round(raw_asg * 0.15, 2)
+        asg_val = w_map["assignment"]
+        if asg_val == 3.0:
+            raw_asg = 20.0
+            weighted_asg = 3.0
+        else:
+            raw_asg = round(asg_val / 0.20, 2)
+            weighted_asg = round(raw_asg * 0.15, 2)
     elif "Assignment" in s and isinstance(s["Assignment"], (int, float)):
         raw_asg = float(s["Assignment"])
         weighted_asg = round(raw_asg * 0.15, 2)
@@ -543,6 +548,28 @@ def reload_students():
     _TOPICS_BY_TRACK, TRACK_SYLLABUS = _build_topics_from_instructor_doc(RAW_INSTRUCTOR_DATA)
     STUDENT_ROSTER = _build_student_roster(RAW_STUDENTS)
     RAW_DATA = _build_raw_data_from_students(STUDENT_ROSTER)
+
+
+import time
+_LAST_LOADED_TIME: float = time.time()
+_RELOAD_INTERVAL_SEC: float = 15.0
+
+
+def check_and_reload_students() -> None:
+    """
+    Checks if cached student data is older than _RELOAD_INTERVAL_SEC (15 seconds).
+    If so, re-fetches from MongoDB Atlas so changes reflect live on Vercel without
+    manual server restarts.
+    """
+    global _LAST_LOADED_TIME
+    now = time.time()
+    if now - _LAST_LOADED_TIME > _RELOAD_INTERVAL_SEC:
+        try:
+            reload_students()
+            _LAST_LOADED_TIME = now
+        except Exception as exc:
+            print(f"[Database] Notice: Auto-reload skipped ({exc.__class__.__name__}).")
+
 
 
 def _refresh_single_student_in_roster(register_number: str) -> None:

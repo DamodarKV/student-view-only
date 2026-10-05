@@ -34,6 +34,7 @@ def reload_data():
 def get_overview(track: str = Query("All tracks")):
     """Everything the top of the admin page needs in one call: stat cards,
     the assessment-by-track chart, and the warning donut."""
+    data.check_and_reload_students()
     print(f"[admin] rendering Admin page (track={track!r})")
     if track not in data.TRACK_FILTER_OPTIONS:
         raise HTTPException(status_code=404, detail="Unknown track")
@@ -51,10 +52,12 @@ def get_overview(track: str = Query("All tracks")):
 
 @router.get("/students")
 def get_students(track: str = Query("All tracks"), category: str = Query("selected")):
+    data.check_and_reload_students()
     norm_cat = category.strip().lower()
     if norm_cat not in data.PANEL_CATEGORY_META and category not in data.CATEGORY_META:
         raise HTTPException(status_code=404, detail="Unknown category")
     d = data.get_track_data(track)
+
     if norm_cat in data.PANEL_CATEGORY_META:
         meta = data.PANEL_CATEGORY_META[norm_cat]
         rows = d.get("panelStudents", {}).get(norm_cat) or d.get("students", {}).get(norm_cat, [])

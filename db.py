@@ -72,6 +72,25 @@ def fetch_students_data() -> Tuple[List[Dict[str, Any]], str]:
     return [], "None"
 
 
+def fetch_single_student(register_number: str) -> Optional[Dict[str, Any]]:
+    """Fetches a single student document from MongoDB Atlas."""
+    reg_clean = register_number.strip()
+    try:
+        client = get_mongo_client()
+        db = client[DB_NAME]
+        coll = db[COLLECTION_NAME]
+        doc = coll.find_one(
+            {"$or": [{"RegNumber": reg_clean}, {"RegNumber": {"$regex": f"^{reg_clean}$", "$options": "i"}}]},
+            {"_id": 0},
+        )
+        client.close()
+        return doc
+    except Exception as exc:
+        print(f"[Database] Notice: Could not fetch student {register_number} ({exc.__class__.__name__}).")
+        return None
+
+
+
 def update_student_watchlist(reg_number: str, on_watchlist: bool) -> bool:
     """
     Updates WatchListStatus for a student in MongoDB Atlas. TrackStatus is NOT modified.

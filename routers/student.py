@@ -64,12 +64,14 @@ class WatchlistTogglePayload(BaseModel):
 def get_roster():
     """Returns the entire student roster with exact original MongoDB scores and metadata."""
     print("[student] rendering Student Roster page")
+    data.check_and_reload_students()
     return {"students": data.STUDENT_ROSTER}
 
 
 @router.get("/roster/{register_number}")
 def get_roster_student_detail(register_number: str):
     print(f"[student] rendering Student Profile Detail page (register_number={register_number!r})")
+    data.check_and_reload_students()
     student = data.find_roster_student(register_number)
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -234,6 +236,7 @@ class DeleteWeightPayload(BaseModel):
 @router.get("/weights/{register_number}")
 def get_student_weights(register_number: Optional[str] = None):
     """Returns the central assessment weights from MongoDB Atlas for the student profile."""
+    data.check_and_reload_students()
     summary = data.get_student_weights_summary(register_number)
     if summary is None:
         raise HTTPException(status_code=404, detail="Weights configuration not available")
