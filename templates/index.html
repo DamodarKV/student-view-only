@@ -1,12 +1,13 @@
+{% from "components/brand.html" import render_brand -%}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cohort Dashboard</title>
+<title>Datadecode.ai — AI Track Management</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/css/style.css?v=20" />
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css?v=21" />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.js"></script>
 </head>
@@ -16,13 +17,13 @@
     <button class="mobile-toggle-btn" id="mobile-toggle-btn" aria-label="Open menu">
       <i data-lucide="menu"></i>
     </button>
-    <span class="mobile-header-title">AI Track cohort</span>
+    {{ render_brand('mobile') }}
     <span class="mobile-status-dot" title="Online"></span>
   </header>
   <div class="sidebar-overlay" id="sidebar-overlay"></div>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header-row">
-      <div class="sidebar-title">AI Track cohort</div>
+      {{ render_brand('sidebar') }}
       <button class="sidebar-close-btn" id="sidebar-close-btn" aria-label="Close menu">
         <i data-lucide="x"></i>
       </button>

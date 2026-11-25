@@ -1,0 +1,8 @@
+{% macro render_brand(variant='sidebar') -%}
+<div class="brand-logo{% if variant == 'mobile' %} brand-logo--mobile{% endif %}">
+  <span class="brand-name">Datadecode<span class="brand-accent">.ai</span></span>
+  {%- if variant != 'mobile' %}
+  <span class="brand-subtitle">AI Track Management</span>
+  {%- endif %}
+</div>
+{%- endmacro %}
